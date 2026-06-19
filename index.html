@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>InfoSys — Hệ thống Quản lý</title>
+
+    <!-- External dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.5.25/jsrsasign-all-min.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="styles.css?v=20260618_10">
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <meta name="theme-color" content="#5b5ef4">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="InfoSys">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="InfoSys">
+</head>
+
+<body>
+
+    <!-- Loading overlay -->
+    <div id="loading" class="loading-mask">
+        <div class="spinner"></div>
+        <p>Đang tải dữ liệu...</p>
+    </div>
+
+    <!-- Drag & drop overlay -->
+    <div id="dropOverlay">
+        <div class="drop-message">
+            <i data-lucide="upload-cloud" style="width:48px;height:48px;"></i>
+            Thả file vào đây để nhập dữ liệu
+        </div>
+    </div>
+
+    <div class="app-shell">
+
+        <!-- ===== SIDEBAR ===== -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="brand">
+                    <div class="logo">INFO<br>SYS</div>
+                    <h1 id="pageTitle">InfoSys</h1>
+                </div>
+                <button class="sidebar-toggle" type="button" onclick="toggleSidebar()" title="Thu gọn menu">
+                    <i data-lucide="panel-left-close" style="width:16px;height:16px;"></i>
+                </button>
+            </div>
+
+            <nav class="tabs">
+                <div class="tab active" id="tab_GHI_CHU" data-tab="GHI_CHU" onclick="switchTab('GHI_CHU')">
+                    <i data-lucide="book-open" style="width:18px;height:18px;"></i>
+                    <span>Ghi chú</span>
+                </div>
+                <div class="tab" id="tab_CHI_TIEU" data-tab="CHI_TIEU" onclick="switchTab('CHI_TIEU')">
+                    <i data-lucide="wallet" style="width:18px;height:18px;"></i>
+                    <span>Chi tiêu</span>
+                </div>
+                <div class="tab" id="tab_CONG_VIEC" data-tab="CONG_VIEC" onclick="switchTab('CONG_VIEC')">
+                    <i data-lucide="check-square" style="width:18px;height:18px;"></i>
+                    <span>Công việc</span>
+                </div>
+                <div class="tab" id="tab_HOC_HOI" data-tab="HOC_HOI" onclick="switchTab('HOC_HOI')">
+                    <i data-lucide="lightbulb" style="width:18px;height:18px;"></i>
+                    <span>Học hỏi</span>
+                </div>
+                <div class="tab" id="tab_THEM" data-tab="THEM" onclick="switchTab('THEM')">
+                    <i data-lucide="plus-circle" style="width:18px;height:18px;"></i>
+                    <span>Thêm nhanh</span>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- ===== MAIN CONTENT ===== -->
+        <main class="main-content">
+
+            <!-- Header / filter bar -->
+            <div class="header-container">
+                <div id="headerActions">
+
+                    <!-- Search -->
+                    <div class="search-container">
+                        <i data-lucide="search" class="search-icon" style="width:16px;height:16px;"></i>
+                        <input type="text" id="searchInput" class="search-input"
+                            placeholder="Tìm kiếm nhanh..."
+                            oninput="filterTable()">
+                    </div>
+
+                    <!-- Date filter -->
+                    <div style="display:flex;flex-direction:column;gap:5px;">
+                        <div class="date-filter-row">
+                            Từ:
+                            <input type="date" id="dateFromFilter" class="filter-input" onchange="filterTable()">
+                            Đến:
+                            <input type="date" id="dateToFilter" class="filter-input" onchange="filterTable()">
+                        </div>
+                        <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
+                            <button type="button" class="tag-btn" onclick="quickFilterDate('today')">Hôm nay</button>
+                            <button type="button" class="tag-btn" onclick="quickFilterDate('yesterday')">Hôm qua</button>
+                            <button type="button" class="tag-btn" onclick="quickFilterDate('this_week')">Tuần này</button>
+                            <button type="button" class="tag-btn" onclick="quickFilterDate('this_month')">Tháng này</button>
+                            <button type="button" class="tag-btn" onclick="quickFilterDate('7_days')">7 ngày</button>
+                            <button type="button" class="tag-btn" onclick="quickFilterDate('all')" style="background:#f4f6fb;">Tất cả</button>
+                        </div>
+                    </div>
+
+                    <!-- Action buttons -->
+                    <button id="reloadBtn" type="button" onclick="reloadCurrentTab()">
+                        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                        </svg>
+                        Load lại
+                    </button>
+
+                    <button id="viewToggleBtn" type="button" onclick="toggleTaskView()"
+                        style="display:none; background:#5b5ef4; color:#fff; border:none; padding:9px 14px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.84rem; display:none; align-items:center; gap:6px;">
+                        <i data-lucide="layout-dashboard" style="width:16px;height:16px;"></i> Kanban
+                    </button>
+
+                    <button id="batchEditPhanLoaiBtn" type="button" onclick="openBatchEditPhanLoai()"
+                        style="display:none; background:var(--primary); color:#fff; border:none; padding:9px 14px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.84rem;">
+                        Sửa phân loại
+                    </button>
+                    <button id="batchDeleteBtn" type="button" onclick="batchDelete()"
+                        style="display:none; background:#ef4444; color:#fff; border:none; padding:9px 14px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.84rem;">
+                        Xóa chọn
+                    </button>
+
+                    <button class="add-btn" type="button" onclick="openRecordForm()">
+                        <i data-lucide="plus" style="width:16px;height:16px;"></i>
+                        Thêm mới
+                    </button>
+
+                    <input type="file" id="fileInput" hidden multiple accept=".xlsx,.xls,.csv"
+                        onchange="handleFileUpload(event)">
+                </div>
+
+                <!-- Category filter chips (injected by JS) -->
+                <div id="phanLoaiFilterContainer"></div>
+
+                <!-- Order-specific filters (shown/hidden by JS) -->
+                <div id="orderFilters" class="order-filters" style="display:none;"></div>
+                <div id="returnOrderControls" class="order-filters" style="display:none;"></div>
+            </div>
+
+            <!-- Dashboard areas (shown/hidden by JS) -->
+            <div id="expenseDashboard"   class="expense-dashboard" style="display:none;"></div>
+            <div id="taskDashboard"      class="expense-dashboard" style="display:none; margin-bottom:20px;"></div>
+            <div id="todayDashboard"     style="display:none; margin-bottom:20px;"></div>
+            <div id="calendarDashboard"  style="display:none; margin-bottom:20px;"></div>
+            <div id="kanbanDashboard"    style="display:none; margin-bottom:20px;"></div>
+
+            <!-- Quick-add panel (THEM tab) -->
+            <div id="quickAddDashboard" style="display:none; gap:16px; align-items:stretch; padding-bottom:20px; height:calc(100vh - 130px);"></div>
+
+            <!-- Data table (desktop) -->
+            <div class="table-wrapper" id="tableWrapper">
+                <table id="dataTable">
+                    <thead id="tableHead"></thead>
+                    <tbody id="tableBody"></tbody>
+                </table>
+            </div>
+
+            <!-- Mobile card list -->
+            <div id="mobileListView" class="mobile-list-view" style="display:none;"></div>
+
+            <!-- Pagination -->
+            <div id="pagination" class="pagination"></div>
+        </main>
+    </div>
+
+    <!-- ===== RECORD FORM MODAL ===== -->
+    <div class="modal-mask" id="productModal" onmousedown="if(event.target===this) closeProductForm()">
+        <form class="modal" onsubmit="saveRecordFromForm(event)">
+            <div class="modal-header">
+                <h2 id="productModalTitle">Thêm mới</h2>
+                <button type="button" class="icon-btn" onclick="closeProductForm()" title="Đóng">
+                    <i data-lucide="x" style="width:18px;height:18px;"></i>
+                </button>
+            </div>
+            <input type="hidden" id="editingSheetRow">
+            <div id="formFields" class="form-fields"></div>
+            <div class="modal-actions">
+                <button type="button" id="deleteRecordBtn" class="delete-record-btn" onclick="deleteCurrentRecord()" style="display:none;">
+                    <i data-lucide="trash-2" style="width:15px;height:15px;"></i>
+                    Xóa
+                </button>
+                <div style="display:flex;gap:10px;margin-left:auto;">
+                    <button type="button" class="secondary-btn" onclick="closeProductForm()">Hủy</button>
+                    <button type="submit" class="primary-btn">
+                        <i data-lucide="save" style="width:15px;height:15px;"></i>
+                        Lưu
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- ===== ORDER DETAIL MODAL ===== -->
+    <div class="modal-mask" id="orderDetailModal" onmousedown="if(event.target===this) closeDonHangDetail()">
+        <div class="modal order-detail-modal">
+            <div class="modal-header">
+                <h2 id="orderDetailTitle">Chi tiết đơn hàng</h2>
+                <button type="button" class="icon-btn" onclick="closeDonHangDetail()" title="Đóng">
+                    <i data-lucide="x" style="width:18px;height:18px;"></i>
+                </button>
+            </div>
+            <div id="orderDetailFields" class="order-detail-fields"></div>
+            <div class="order-items-wrapper">
+                <table>
+                    <thead id="orderDetailHead"></thead>
+                    <tbody id="orderDetailBody"></tbody>
+                </table>
+            </div>
+            <div class="order-item-actions">
+                <button type="button" class="secondary-btn" onclick="addDonHangItem()">
+                    <i data-lucide="plus" style="width:15px;height:15px;"></i>
+                    Thêm sản phẩm
+                </button>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="secondary-btn" onclick="closeDonHangDetail()">Đóng</button>
+                <button type="button" class="primary-btn" onclick="saveDonHangDetail()">
+                    <i data-lucide="save" style="width:15px;height:15px;"></i>
+                    Lưu thay đổi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== BATCH EDIT MODAL ===== -->
+    <div class="modal-mask" id="batchEditModal" style="display:none;"
+        onmousedown="if(event.target===this) closeBatchEditModal()">
+        <div class="modal" style="width:460px;height:auto;max-height:80vh;border-radius:14px;margin:auto;">
+            <div class="modal-header">
+                <h2>Sửa phân loại hàng loạt</h2>
+                <button type="button" class="icon-btn" onclick="closeBatchEditModal()" title="Đóng">
+                    <i data-lucide="x" style="width:18px;height:18px;"></i>
+                </button>
+            </div>
+            <div class="form-fields" style="grid-template-columns:1fr; overflow-y:auto; max-height:50vh;">
+                <label>
+                    PHÂN LOẠI MỚI
+                    <div id="batchEditTagButtons" class="tag-buttons" style="margin-bottom:8px;"></div>
+                    <input type="text" id="batchEditPhanLoaiInput" placeholder="Nhập hoặc chọn phân loại...">
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="secondary-btn" onclick="closeBatchEditModal()">Hủy</button>
+                <button type="button" class="primary-btn" onclick="executeBatchEditPhanLoai()">
+                    <i data-lucide="save" style="width:15px;height:15px;"></i>
+                    Lưu
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="app.js?v=20260618_10"></script>
+    <script src="quick_add.js?v=20260618_10"></script>
+    <script src="patch.js?v=20260618_10"></script>
+
+    <!-- PWA: Service Worker + Notifications -->
+    <script>
+    // ---- Register Service Worker ----
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => {
+            console.log('[SW] Registered:', reg.scope);
+            window._swReg = reg;
+          })
+          .catch(err => console.warn('[SW] Failed:', err));
+      });
+    }
+
+    // ---- Notification permission + deadline checker ----
+    async function requestNotificationPermission() {
+      if (!('Notification' in window)) return false;
+      if (Notification.permission === 'granted') return true;
+      if (Notification.permission === 'denied') return false;
+      const result = await Notification.requestPermission();
+      return result === 'granted';
+    }
+
+    // Ask for notification permission after first interaction
+    document.addEventListener('click', async function askOnce() {
+      document.removeEventListener('click', askOnce);
+      const granted = await requestNotificationPermission();
+      if (granted) {
+        console.log('[Notifications] Permission granted');
+        // Start periodic deadline check
+        setInterval(checkDeadlines, 30 * 60 * 1000); // every 30 min
+      }
+    }, { once: true });
+
+    // Check CONG_VIEC deadlines and notify via SW
+    function checkDeadlines() {
+      if (!window.allData || window.currentTab !== 'CONG_VIEC') return;
+      if (Notification.permission !== 'granted') return;
+
+      const today = new Date(); today.setHours(0,0,0,0);
+      const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const overdue = [];
+      const todayTasks = [];
+
+      (window.allData || []).forEach(row => {
+        const status = row[5];
+        if (status === 'Hoàn thành') return;
+        const title = row[1] || 'Không tên';
+        const deadlineStr = row[7];
+        if (!deadlineStr) return;
+
+        let dl;
+        try {
+          const parts = String(deadlineStr).split(' ')[0].split('/');
+          dl = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+        } catch(e) { return; }
+
+        if (isNaN(dl)) return;
+        dl.setHours(0,0,0,0);
+
+        if (dl < today) overdue.push(title);
+        else if (dl.getTime() === today.getTime()) todayTasks.push(title);
+      });
+
+      if (navigator.serviceWorker.controller) {
+        navigator.serviceWorker.controller.postMessage({
+          type: 'CHECK_DEADLINES',
+          overdue,
+          today: todayTasks
+        });
+      }
+    }
+
+    // Handle shortcut URLs (#them, #chitieu etc.)
+    window.addEventListener('DOMContentLoaded', () => {
+      const hash = location.hash.replace('#', '').toUpperCase();
+      const tabMap = { THEM: 'THEM', CHITIEU: 'CHI_TIEU', GHICHU: 'GHI_CHU', CONGVIEC: 'CONG_VIEC', HOCHOI: 'HOC_HOI' };
+      if (hash && tabMap[hash]) {
+        setTimeout(() => window.switchTab && switchTab(tabMap[hash]), 800);
+      }
+    });
+    </script>
+</body>
+
+</html>
