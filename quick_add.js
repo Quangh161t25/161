@@ -261,7 +261,7 @@ async function saveQuickAdd(e, tabName) {
         const newId = 'ID-' + Date.now();
 
         const rowData = tabConfig.headers.map(h => {
-            if (h === 'bao_lau' || h === 'so_du_ao') return '';
+            if (h === 'bao_lau' || h === 'so_du_ao') return null;
             if (h === 'id') return newId;
             const el = document.getElementById(`input_${tabName}_${h}`);
             let val = el ? el.value : '';

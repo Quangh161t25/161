@@ -130,7 +130,7 @@ body.sidebar-collapsed .sidebar-header {
 }
 
 body.sidebar-collapsed .sidebar-toggle {
-    display: none;
+    /* display: none; */
 }
 
 .sidebar-toggle {

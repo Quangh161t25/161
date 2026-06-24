@@ -59,6 +59,10 @@
             </div>
 
             <nav class="tabs">
+                <div class="tab" id="tab_TAT_CA" data-tab="TAT_CA" onclick="switchTab('TAT_CA')">
+                    <i data-lucide="layers" style="width:18px;height:18px;"></i>
+                    <span>Tất cả</span>
+                </div>
                 <div class="tab active" id="tab_GHI_CHU" data-tab="GHI_CHU" onclick="switchTab('GHI_CHU')">
                     <i data-lucide="book-open" style="width:18px;height:18px;"></i>
                     <span>Ghi chú</span>
@@ -160,6 +164,7 @@
             <div id="todayDashboard"     style="display:none; margin-bottom:20px;"></div>
             <div id="calendarDashboard"  style="display:none; margin-bottom:20px;"></div>
             <div id="kanbanDashboard"    style="display:none; margin-bottom:20px;"></div>
+            <div id="allDashboard"       style="display:none; gap: 20px; overflow-x: auto; margin-bottom:20px; align-items: flex-start; padding-bottom: 10px;"></div>
 
             <!-- Quick-add panel (THEM tab) -->
             <div id="quickAddDashboard" style="display:none; gap:16px; align-items:stretch; padding-bottom:20px; height:calc(100vh - 130px);"></div>
@@ -267,9 +272,9 @@
     </div>
 
     <!-- Scripts -->
-    <script src="app.js?v=20260618_10"></script>
-    <script src="quick_add.js?v=20260618_10"></script>
-    <script src="patch.js?v=20260618_10"></script>
+    <script src="app.js?v=20260624_01"></script>
+    <script src="quick_add.js?v=20260624_01"></script>
+    <script src="patch.js?v=20260624_01"></script>
 
     <!-- PWA: Service Worker + Notifications -->
     <script>

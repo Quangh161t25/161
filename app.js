@@ -258,6 +258,8 @@ async function switchTab(tabName) {
         currentTab = 'CONG_VIEC';
     } else if (tabName === 'THEM') {
         currentTab = '';
+    } else if (tabName === 'TAT_CA') {
+        currentTab = '';
     } else {
         currentTab = CONFIG.tabs[tabName] ? tabName : '';
     }
@@ -287,13 +289,16 @@ async function switchTab(tabName) {
     const quickAddDash = document.getElementById('quickAddDashboard');
     if (quickAddDash) quickAddDash.style.display = currentView === 'THEM' ? 'flex' : 'none';
 
-    if(!currentTab && currentView !== 'THEM') {
+    const allDash = document.getElementById('allDashboard');
+    if (allDash) allDash.style.display = currentView === 'TAT_CA' ? 'flex' : 'none';
+
+    if(!currentTab && currentView !== 'THEM' && currentView !== 'TAT_CA') {
         if(tableWrap) tableWrap.style.display = 'none';
         if(pagination) pagination.style.display = 'none';
         return;
     }
     
-    if (currentView === 'HOM_NAY' || currentView === 'LICH' || currentView === 'THEM') {
+    if (currentView === 'HOM_NAY' || currentView === 'LICH' || currentView === 'THEM' || currentView === 'TAT_CA') {
         if(tableWrap) tableWrap.style.display = 'none';
         if(pagination) pagination.style.display = 'none';
         if(phanLoaiFilterContainer) phanLoaiFilterContainer.style.display = 'none';
@@ -304,6 +309,8 @@ async function switchTab(tabName) {
         
         if (currentView === 'THEM') {
             renderQuickAddForms();
+        } else if (currentView === 'TAT_CA') {
+            renderAllDashboard();
         }
     } else {
         if(tableWrap) tableWrap.style.display = 'block';
@@ -602,16 +609,6 @@ function openRecordForm(rowData = null, sheetRow = null) {
     const ngayOutInput = document.getElementById('input_ngay_out');
 
     if (ngayInput) {
-        const updateBaoLau = () => {
-            const ngayVal = ngayInput.value;
-            const baoLauInput = document.getElementById('input_bao_lau');
-            if (ngayVal && baoLauInput) {
-                const diffTime = Math.abs(new Date() - new Date(ngayVal));
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                baoLauInput.value = diffDays + " ngày";
-            }
-        };
-
         ngayInput.addEventListener('change', (e) => {
             const dateVal = e.target.value;
             if (ngayInInput) {
@@ -620,7 +617,6 @@ function openRecordForm(rowData = null, sheetRow = null) {
                 // Trigger change to update ngay_out if it's a new record
                 ngayInInput.dispatchEvent(new Event('change'));
             }
-            updateBaoLau();
         });
 
         if (ngayInInput) {
@@ -630,7 +626,6 @@ function openRecordForm(rowData = null, sheetRow = null) {
                     const datePart = inVal.split('T')[0];
                     if (ngayInput.value !== datePart) {
                         ngayInput.value = datePart;
-                        updateBaoLau();
                     }
 
                     // If new record, update ngay_out = ngay_in + 30m
@@ -642,10 +637,6 @@ function openRecordForm(rowData = null, sheetRow = null) {
                     }
                 }
             });
-        }
-
-        if (!isEdit) {
-            updateBaoLau();
         }
     }
 
@@ -890,7 +881,7 @@ async function saveRecordFromForm(e) {
         const rowData = [];
         tabConfig.headers.forEach((h, idx) => {
             if (h === 'bao_lau' || h === 'so_du_ao') {
-                rowData.push(''); // Push empty string to maintain column indices
+                rowData.push(null); // Push null to ignore cell and maintain array formulas
                 return;
             }
 
@@ -968,7 +959,7 @@ function renderHeaders() {
         if (i === 0 || hiddenCols.includes(h)) return '';
         let style = '';
         if (['ngay', 'ngay_in', 'ngay_out'].includes(h)) {
-            style = 'style="white-space: nowrap; width: 80px;"';
+            style = 'style="white-space: nowrap; min-width: 95px;"';
         } else if (h === 'so_tien' || h === 'so_du_ao') {
             style = 'style="white-space: nowrap; text-align: right; width: 100px;"';
         } else if (currentTab === 'CHI_TIEU') {
@@ -1131,6 +1122,17 @@ function renderTable() {
                         if (cellVal && cellVal.startsWith('http')) {
                             cellVal = `<img src="${cellVal}" style="max-height: 50px; max-width: 50px; border-radius: 4px; object-fit: cover;">`;
                         }
+                    } else if (h === 'tieu_de' || h === 'noi_dung') {
+                        if (cellVal) {
+                            const escapedVal = String(cellVal).replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/\n/g, "\\n").replace(/\r/g, "");
+                            cellVal = `<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                                <div class="line-clamp-3" style="flex-grow:1;">${cellVal}</div>
+                                <button type="button" onclick="copyToClipboard('${escapedVal}', event)" style="background:transparent; border:none; cursor:pointer; color:#64748b; padding:4px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:4px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'" title="Sao chép">
+                                    <i data-lucide="copy" style="width:14px; height:14px;"></i>
+                                </button>
+                            </div>`;
+                            return `<td ${tdStyle}>${cellVal}</td>`;
+                        }
                     }
                 }
 
@@ -1142,6 +1144,27 @@ function renderTable() {
 
     renderPagination();
     updateBatchButtons();
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function copyToClipboard(text, event) {
+    if (event) {
+        event.stopPropagation();
+    }
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.currentTarget;
+        if (btn) {
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = '<i data-lucide="check" style="width:14px; height:14px; color:#10b981;"></i>';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            setTimeout(() => {
+                btn.innerHTML = originalHTML;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }, 1500);
+        }
+    }).catch(err => {
+        console.error('Failed to copy: ', err);
+    });
 }
 
 function renderPagination() {
@@ -1648,6 +1671,113 @@ async function executeBatchEditPhanLoai() {
     } catch (e) {
         console.error(e);
         alert("Lỗi: " + e.message);
+    } finally {
+        document.getElementById('loading').style.display = 'none';
+    }
+}
+
+
+
+async function renderAllDashboard() {
+    const allDash = document.getElementById('allDashboard');
+    if (!allDash) return;
+    
+    document.getElementById('loading').style.display = 'flex';
+    allDash.innerHTML = '';
+
+    try {
+        const token = await getAccessToken();
+        const tabsToFetch = ['GHI_CHU', 'CHI_TIEU', 'HOC_HOI'];
+        
+        const promises = tabsToFetch.map(async (tabName) => {
+            const tabConfig = CONFIG.tabs[tabName];
+            const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${tabConfig.range}`, { headers: { Authorization: `Bearer ${token}` } });
+            const rawData = await res.json();
+            return {
+                tabName,
+                headers: tabConfig.headers,
+                data: (rawData.values || []).map((row, i) => {
+                    const arr = [...row];
+                    arr._sheetRow = i + 2;
+                    return arr;
+                })
+            };
+        });
+
+        const results = await Promise.all(promises);
+        
+        results.forEach(result => {
+            result.data.reverse();
+            
+            const wrapper = document.createElement('div');
+            wrapper.className = 'table-wrapper';
+            wrapper.style.flex = '1';
+            wrapper.style.minWidth = '300px';
+            wrapper.style.display = 'block';
+            
+            const title = document.createElement('h3');
+            title.textContent = result.tabName === 'GHI_CHU' ? 'Ghi chú' : (result.tabName === 'CHI_TIEU' ? 'Chi tiêu' : 'Học hỏi');
+            title.style.padding = '10px 14px';
+            title.style.margin = '0';
+            title.style.borderBottom = '1px solid #e8edf8';
+            title.style.fontSize = '1.1rem';
+            title.style.color = 'var(--primary)';
+            wrapper.appendChild(title);
+
+            const table = document.createElement('table');
+            table.style.width = '100%';
+            table.style.borderCollapse = 'collapse';
+            
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            
+            let displayCols = [];
+            if (result.tabName === 'GHI_CHU') displayCols = [1, 4]; // ngay, tieu_de
+            if (result.tabName === 'CHI_TIEU') displayCols = [1, 4, 5]; // ngay, so_tien, hang_muc
+            if (result.tabName === 'HOC_HOI') displayCols = [1, 2]; // ngay, tieu_de
+            
+            displayCols.forEach(idx => {
+                const th = document.createElement('th');
+                th.textContent = result.headers[idx].toUpperCase();
+                th.style.padding = '8px 10px';
+                th.style.textAlign = 'left';
+                th.style.borderBottom = '1px solid #e8edf8';
+                th.style.whiteSpace = 'nowrap';
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+            
+            const tbody = document.createElement('tbody');
+            result.data.slice(0, 30).forEach(row => {
+                const tr = document.createElement('tr');
+                displayCols.forEach(idx => {
+                    const td = document.createElement('td');
+                    td.textContent = row[idx] || '';
+                    td.style.padding = '8px 10px';
+                    td.style.borderBottom = '1px solid #f0f3f9';
+                    td.style.fontSize = '0.85rem';
+                    
+                    if (result.headers[idx] === 'so_tien') {
+                        const val = parseFloat((row[idx] || '').toString().replace(/[^\d.-]/g, '')) || 0;
+                        td.textContent = new Intl.NumberFormat('vi-VN').format(val) + ' ₫';
+                        td.style.textAlign = 'right';
+                    }
+                    if (result.headers[idx] === 'ngay') {
+                        td.style.whiteSpace = 'nowrap';
+                    }
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            wrapper.appendChild(table);
+            allDash.appendChild(wrapper);
+        });
+        
+    } catch (e) {
+        console.error(e);
+        allDash.innerHTML = `<p style="color:red; padding:20px;">Lỗi tải dữ liệu: ${e.message}</p>`;
     } finally {
         document.getElementById('loading').style.display = 'none';
     }
