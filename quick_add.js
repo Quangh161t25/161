@@ -49,8 +49,8 @@ function _fieldChips(id, name, chips, placeholder, multi) {
         return `<button type="button" class="tag-btn" onclick="${onclick}">${t}</button>`;
     }).join('');
     return `
-    <div class="tag-buttons">${chipsHtml}</div>
-    <input type="text" id="${id}" name="${name}" placeholder="${placeholder}">`;
+    <input type="text" id="${id}" name="${name}" placeholder="${placeholder}">
+    <div class="tag-buttons" style="margin-top:8px;">${chipsHtml}</div>`;
 }
 
 function _fieldLoaiGiaoDich(tabName) {
@@ -75,8 +75,8 @@ function _fieldSoTien(id, tabName) {
             onclick="const inp=document.getElementById('${id}');inp.value=(parseFloat(inp.value.replace(/,/g,''))||0)+${a};">+${formatMoney(a)}</button>`
     ).join('');
     return `
-    <div class="amount-chips">${chips}</div>
-    <input type="number" id="${id}" name="so_tien" placeholder="Nhập số tiền...">`;
+    <input type="number" id="${id}" name="so_tien" placeholder="Nhập số tiền...">
+    <div class="amount-chips" style="margin-top:8px;">${chips}</div>`;
 }
 
 function _fieldMap(tabName) {
@@ -123,9 +123,19 @@ function generateFormHTML(tabName) {
                 break;
             case 'ngay_bat_dau':
             case 'deadline':
-            case 'ngay_hoan_thanh':
-                inputHtml = _fieldDateTime(id, '');
+            case 'ngay_hoan_thanh': {
+                let defaultDate = '';
+                if (h === 'ngay_bat_dau') {
+                    const localNow = new Date();
+                    defaultDate = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                } else if (h === 'deadline') {
+                    const localNow = new Date();
+                    localNow.setHours(localNow.getHours() + 1);
+                    defaultDate = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                }
+                inputHtml = _fieldDateTime(id, defaultDate);
                 break;
+            }
             case 'bao_lau':
             case 'so_du_ao':
                 inputHtml = _fieldText(id, h, 'Tự động tính...', true);

@@ -1,3 +1,4 @@
+window.cachedData = window.cachedData || {};
 const CONFIG = {
     spreadsheetId: "16eWBBZOcFzrpoU66r3Ma3DM5ngX7JqMPtXxasggyS-s",
     serviceAccountEmail: "test-gia-ason@api-test-sheet-161.iam.gserviceaccount.com",
@@ -116,64 +117,92 @@ function renderExpenseDashboard() {
 
     let periodIncome = 0;
     let periodExpense = 0;
+    let categoryBalances = {};
 
     filteredData.forEach(row => {
         const type = row[2];
         const amount = parseFloat(String(row[4]).replace(/,/g, '')) || 0;
-        if (type === 'Thu') periodIncome += amount;
-        if (type === 'Chi') periodExpense += amount;
+        const hangMuc = row[5];
+        if (type === 'Thu') {
+            periodIncome += amount;
+            if (hangMuc && hangMuc.trim() !== '') {
+                categoryBalances[hangMuc] = (categoryBalances[hangMuc] || 0) + amount;
+            }
+        }
+        if (type === 'Chi') {
+            periodExpense += amount;
+            if (hangMuc && hangMuc.trim() !== '') {
+                categoryBalances[hangMuc] = (categoryBalances[hangMuc] || 0) - amount;
+            }
+        }
     });
 
     let totalBalance = 0;
-    let tienMat = 0;
-    let viDienTu = 0;
     
     for (const [acc, bal] of Object.entries(globalAccountBalances)) {
-        totalBalance += bal;
-        if (acc.toLowerCase().includes('tiền mặt') || acc.toLowerCase() === 'cash') {
-            tienMat += bal;
-        } else {
-            viDienTu += bal;
+        const accLower = acc.toLowerCase();
+        // Exclude Momo (ví trả sau) from Total Assets
+        if (!accLower.includes('momo') && !accLower.includes('trả sau')) {
+            totalBalance += bal;
         }
     }
 
-    dash.innerHTML = `
-        <div class="dashboard-card card-asset">
-            <div>
-                <p class="card-title">Tổng tài sản</p>
-                <p class="amount">${formatMoney(totalBalance)} đ</p>
-            </div>
-            <i data-lucide="wallet" class="card-icon"></i>
+    let topCards = `
+        <div class="dashboard-card card-asset" style="flex-direction: row; justify-content: space-between; align-items: center;">
+            <p class="card-title" style="margin: 0;">Tổng tài sản</p>
+            <p class="amount" style="margin: 0;">${formatMoney(totalBalance)}</p>
         </div>
-        <div class="dashboard-card card-income">
-            <div>
-                <p class="card-title">Tổng thu</p>
-                <p class="amount positive">+${formatMoney(periodIncome)} đ</p>
-            </div>
-            <div class="icon-circle text-green"><i data-lucide="arrow-up" style="width:16px;"></i></div>
+        <div class="dashboard-card card-income" style="flex-direction: row; justify-content: space-between; align-items: center;">
+            <p class="card-title" style="margin: 0;">Tổng thu</p>
+            <p class="amount positive" style="margin: 0;">+${formatMoney(periodIncome)}</p>
         </div>
-        <div class="dashboard-card card-expense">
-            <div>
-                <p class="card-title">Tổng chi</p>
-                <p class="amount negative">-${formatMoney(periodExpense)} đ</p>
-            </div>
-            <div class="icon-circle text-red"><i data-lucide="arrow-down" style="width:16px;"></i></div>
-        </div>
-        <div class="dashboard-card card-cash">
-            <div>
-                <p class="card-title">Tiền mặt</p>
-                <p class="amount blue-text">${formatMoney(tienMat)} đ</p>
-            </div>
-            <div class="icon-circle text-blue"><i data-lucide="banknote" style="width:16px;"></i></div>
-        </div>
-        <div class="dashboard-card card-ewallet">
-            <div>
-                <p class="card-title">Ví điện tử</p>
-                <p class="amount purple-text">${formatMoney(viDienTu)} đ</p>
-            </div>
-            <div class="icon-circle text-purple"><i data-lucide="credit-card" style="width:16px;"></i></div>
+        <div class="dashboard-card card-expense" style="flex-direction: row; justify-content: space-between; align-items: center;">
+            <p class="card-title" style="margin: 0;">Tổng chi</p>
+            <p class="amount negative" style="margin: 0;">-${formatMoney(periodExpense)}</p>
         </div>
     `;
+
+    for (const [acc, bal] of Object.entries(globalAccountBalances)) {
+        topCards += `
+            <div class="dashboard-card" style="flex-direction: row; justify-content: space-between; align-items: center;">
+                <p class="card-title" style="margin: 0;">${acc}</p>
+                <p class="amount blue-text" style="margin: 0;">${formatMoney(bal)}</p>
+            </div>
+        `;
+    }
+
+    let categoryCards = '';
+    for (const [cat, bal] of Object.entries(categoryBalances)) {
+        if (bal === 0) continue; // Skip if net is 0
+        const isIncome = bal > 0;
+        const colorClass = isIncome ? 'positive' : 'negative';
+        const displayBal = isIncome ? `+${formatMoney(bal)}` : formatMoney(bal);
+        
+        categoryCards += `
+            <div class="dashboard-card" style="flex-direction: row; justify-content: space-between; align-items: center; padding: 12px 16px;">
+                <p class="card-title" style="margin: 0; font-size: 0.72rem;">${cat}</p>
+                <p class="amount ${colorClass}" style="margin: 0; font-size: 1.1rem;">${displayBal}</p>
+            </div>
+        `;
+    }
+
+    let dashHtml = `
+        <div style="grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px;">
+            ${topCards}
+        </div>
+    `;
+    
+    if (categoryCards) {
+        dashHtml += `
+            <div style="grid-column: 1 / -1; margin-top: 12px;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 12px;">
+                    ${categoryCards}
+                </div>
+            </div>
+        `;
+    }
+
+    dash.innerHTML = dashHtml;
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
@@ -268,6 +297,8 @@ async function switchTab(tabName) {
         t.classList.toggle('active', t.dataset.tab === currentView);
     });
     
+    const kanbanDash = document.getElementById('kanbanDashboard');
+    if (kanbanDash && currentView !== 'CONG_VIEC') kanbanDash.style.display = 'none';
     const expDash = document.getElementById('expenseDashboard');
     const taskDash = document.getElementById('taskDashboard');
     const todayDash = document.getElementById('todayDashboard');
@@ -276,7 +307,7 @@ async function switchTab(tabName) {
     const pagination = document.getElementById('pagination');
     const phanLoaiFilterContainer = document.getElementById('phanLoaiFilterContainer');
     const searchInput = document.querySelector('.search-container');
-    const dateFilters = document.getElementById('headerActions').querySelector('div[style*="flex-direction:column"]');
+    const dateFilters = document.getElementById('dateFilterContainer');
 
     if (expDash) expDash.style.display = currentView === 'CHI_TIEU' ? 'grid' : 'none';
     if (taskDash) taskDash.style.display = currentView === 'CONG_VIEC' ? 'grid' : 'none';
@@ -326,16 +357,71 @@ async function switchTab(tabName) {
 }
 
 async function reloadCurrentTab() {
-    await fetchData();
+    await fetchData(true);
 }
 
-async function fetchData() {
+function dispatchViewRender() {
+    if (currentView === 'HOM_NAY') {
+        renderTodayTasks();
+    } else if (currentView === 'LICH') {
+        renderCalendar();
+    } else {
+        renderHeaders();
+        renderTabFilters();
+        
+        if (currentTab === 'CONG_VIEC') {
+            renderTaskDashboard();
+            renderTaskView();
+        } else {
+            const kanbanDash = document.getElementById('kanbanDashboard');
+            if (kanbanDash) kanbanDash.style.display = 'none';
+            document.getElementById('tableWrapper').style.display = 'block';
+            const pagination = document.getElementById('pagination');
+            if (pagination) pagination.style.display = 'flex';
+            renderTable();
+        }
+        if (currentTab === 'CHI_TIEU') {
+            renderExpenseDashboard();
+        }
+    }
+}
+
+async function fetchData(forceReload = false) {
     if (!currentTab) return;
+    
+    if (!forceReload && window.cachedData[currentTab]) {
+        allData = window.cachedData[currentTab];
+        if (currentTab === 'CHI_TIEU') {
+            calculateExpenseBalances();
+        } else if (currentTab === 'CONG_VIEC') {
+            allData.sort((a, b) => {
+                const dateA = parseSheetDate(a[7]);
+                const dateB = parseSheetDate(b[7]);
+                if (dateA !== dateB && dateA !== 0 && dateB !== 0) return dateA - dateB;
+                return b._sheetRow - a._sheetRow;
+            });
+        } else {
+            allData.sort((a, b) => {
+                const dateDiff = parseSheetDate(b[1]) - parseSheetDate(a[1]);
+                if (dateDiff !== 0) return dateDiff;
+                return b._sheetRow - a._sheetRow;
+            });
+        }
+        filteredData = [...allData];
+        currentPage = 1;
+        document.getElementById('loading').style.display = 'none';
+        dispatchViewRender();
+        return;
+    }
+    
     document.getElementById('loading').style.display = 'flex';
     try {
         const token = await getAccessToken();
         const tabConfig = CONFIG.tabs[currentTab];
-        const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${tabConfig.range}`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${tabConfig.range}`, { 
+            headers: { Authorization: `Bearer ${token}` },
+            cache: 'no-store'
+        });
         const rawData = await res.json();
         allData = (rawData.values || []).map((row, i) => {
             const arr = [...row];
@@ -358,31 +444,14 @@ async function fetchData() {
                 return b._sheetRow - a._sheetRow;
             });
         }
-        filteredData = [...allData];
-        currentPage = 1;
-
-        if (currentView === 'HOM_NAY') {
-            renderTodayTasks();
-        } else if (currentView === 'LICH') {
-            renderCalendar();
+        window.cachedData[currentTab] = allData;
+        
+        if (typeof filterTable === 'function') {
+            filterTable();
         } else {
-            renderHeaders();
-            renderTabFilters();
-            
-            if (currentTab === 'CONG_VIEC') {
-                renderTaskDashboard();
-                renderTaskView();
-            } else {
-                const kanbanDash = document.getElementById('kanbanDashboard');
-                if (kanbanDash) kanbanDash.style.display = 'none';
-                document.getElementById('tableWrapper').style.display = 'block';
-                const pagination = document.getElementById('pagination');
-                if (pagination) pagination.style.display = 'flex';
-                renderTable();
-            }
-            if (currentTab === 'CHI_TIEU') {
-                renderExpenseDashboard();
-            }
+            filteredData = [...allData];
+            currentPage = 1;
+            dispatchViewRender();
         }
     } catch (e) {
         console.error("Lỗi khi tải dữ liệu:", e);
@@ -472,10 +541,8 @@ function openRecordForm(rowData = null, sheetRow = null) {
             ).join('');
 
             inputHtml = `
-                <div class="tag-buttons" style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
-                    ${tagsHtml}
-                </div>
                 <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập hoặc chọn phân loại...">
+                <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
             `;
         } else if (h === 'tag' && currentTab === 'HOC_HOI') {
             const colIndex = tabConfig.headers.indexOf('tag');
@@ -488,10 +555,8 @@ function openRecordForm(rowData = null, sheetRow = null) {
             ).join('');
 
             inputHtml = `
-                <div class="tag-buttons" style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
-                    ${tagsHtml}
-                </div>
                 <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập hoặc chọn nhiều tag (cách nhau bởi dấu phẩy)...">
+                <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
             `;
         } else if (h === 'noi_dung') {
             inputHtml = `<textarea id="input_${h}" name="${h}" placeholder="Nhập ${h}..." rows="3">${val}</textarea>`;
@@ -509,8 +574,8 @@ function openRecordForm(rowData = null, sheetRow = null) {
                 </button>
             `).join('');
             inputHtml = `
-                <div style="display:flex; gap:8px;">${buttonsHtml}</div>
                 <input type="hidden" id="input_${h}" name="${h}" value="${valOrDefault}">
+                <div style="display:flex; gap:8px; margin-top:8px;">${buttonsHtml}</div>
             `;
         } else if (h === 'so_du_ao') {
             let displayVal = val;
@@ -529,10 +594,8 @@ function openRecordForm(rowData = null, sheetRow = null) {
             ).join('');
 
             inputHtml = `
-                <div class="tag-buttons" style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
-                    ${tagsHtml}
-                </div>
                 <input type="number" id="input_${h}" name="${h}" value="${rawVal}" placeholder="Nhập ${h}...">
+                <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
             `;
         } else if (h === 'hang_muc') {
             const colIndex = tabConfig.headers.indexOf(h);
@@ -545,10 +608,8 @@ function openRecordForm(rowData = null, sheetRow = null) {
             ).join('');
 
             inputHtml = `
-                <div class="tag-buttons" style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
-                    ${tagsHtml}
-                </div>
                 <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập hoặc chọn ${h}...">
+                <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
             `;
         } else if (currentTab === 'CONG_VIEC' && ['mo_ta', 'ghi_chu'].includes(h)) {
             inputHtml = `<textarea id="input_${h}" name="${h}" placeholder="Nhập ${h}..." rows="3">${val}</textarea>`;
@@ -560,8 +621,8 @@ function openRecordForm(rowData = null, sheetRow = null) {
                 `<button type="button" class="tag-btn" onclick="document.getElementById('input_${h}').value='${o}'">${o}</button>`
             ).join('');
             inputHtml = `
-                <div style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">${tagsHtml}</div>
                 <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập ${h}...">
+                <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
             `;
         } else if (currentTab === 'CONG_VIEC' && ['ngay_bat_dau', 'deadline', 'ngay_hoan_thanh'].includes(h)) {
             let dateVal = val;
@@ -569,6 +630,14 @@ function openRecordForm(rowData = null, sheetRow = null) {
                 const parts = String(val).split(' ');
                 const [dd, mm, yyyy] = parts[0].split('/');
                 dateVal = `${yyyy}-${mm}-${dd}T${parts[1] || '00:00'}`;
+            } else if (!isEdit && !val) {
+                const localNow = new Date();
+                if (h === 'ngay_bat_dau') {
+                    dateVal = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                } else if (h === 'deadline') {
+                    localNow.setHours(localNow.getHours() + 1);
+                    dateVal = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                }
             }
             inputHtml = `
                 <div style="display:flex; gap:5px;">
@@ -585,10 +654,8 @@ function openRecordForm(rowData = null, sheetRow = null) {
             ).join('');
 
             inputHtml = `
-                <div class="tag-buttons" style="display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap;">
-                    ${tagsHtml}
-                </div>
                 <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập hoặc chọn tài khoản...">
+                <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
             `;
         }
         return `<div class="form-group"><label>${h.toUpperCase()}</label>${inputHtml}</div>`;
@@ -810,7 +877,7 @@ function renderKanban() {
         if (status === 'Tạm dừng') headerColor = '#f59e0b';
 
         kanbanHtml += `
-            <div class="kanban-column" style="background: #f1f5f9; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 250px;">
+            <div class="kanban-column" style="background: #f1f5f9; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 250px;" ondragover="allowDrop(event)" ondrop="dropTask(event, '${status}')">
                 <div style="font-weight: 800; color: ${headerColor}; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; display:flex; justify-content:space-between;">
                     ${status} <span style="background:#e2e8f0; color:#475569; padding:2px 8px; border-radius:12px; font-size:0.8rem;">${tasks.length}</span>
                 </div>
@@ -823,7 +890,7 @@ function renderKanban() {
                         if(priority === 'Thấp') pClass = 'badge-green';
 
                         return `
-                        <div class="task-card" style="margin: 0; cursor: pointer; padding: 12px;" ondblclick='openRecordForm(${JSON.stringify(t).replace(/'/g, "&#39;")}, ${t._sheetRow})'>
+                        <div class="task-card" style="margin: 0; cursor: grab; padding: 12px;" draggable="true" ondragstart="dragStart(event, ${t._sheetRow})" ondblclick='openRecordForm(${JSON.stringify(t).replace(/'/g, "&#39;")}, ${t._sheetRow})'>
                             <div style="font-weight: 700; margin-bottom: 6px; font-size: 0.95rem;">${t[1]}</div>
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <span class="task-card-badge ${pClass}">${priority || 'Không mức độ'}</span>
@@ -942,7 +1009,13 @@ async function saveRecordFromForm(e) {
         }
 
         closeProductForm();
-        await fetchData();
+        window.cachedData[currentTab] = null; // Invalidate cache before reloading
+        if (currentView === 'TAT_CA') {
+            currentTab = '';
+            await renderAllDashboard();
+        } else {
+            await fetchData(true);
+        }
     } catch (err) {
         console.error(err);
         alert("Lưu thất bại: " + err.message);
@@ -1218,12 +1291,19 @@ function filterTable() {
         let dateMatch = true;
         if (fromTime || toTime) {
             let anyDateMatches = false;
-            for (let i = 1; i <= 3; i++) {
+            const tabConfig = CONFIG.tabs[currentTab];
+            let dateCols = [];
+            if (tabConfig) {
+                dateCols = tabConfig.headers.map((h, i) => ['ngay', 'ngay_in', 'ngay_out', 'ngay_bat_dau', 'deadline', 'ngay_hoan_thanh'].includes(h) ? i : -1).filter(i => i !== -1);
+            }
+            if (dateCols.length === 0) dateCols = [1]; // Fallback to column 1 if no date columns found
+
+            for (let i of dateCols) {
                 if (row[i]) {
                     let dStr = String(row[i]);
                     if (dStr.includes('/')) {
                         const parts = dStr.split(' ')[0].split('/');
-                        dStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
+                        if (parts.length === 3) dStr = `${parts[2]}-${parts[1]}-${parts[0]}`;
                     }
                     const rd = new Date(dStr);
                     if (!isNaN(rd.getTime())) {
@@ -1591,7 +1671,7 @@ async function batchDelete() {
             throw new Error(errData.error?.message || "Lỗi khi xóa");
         }
 
-        await fetchData(); // Reload data
+        await fetchData(true); // Reload data
     } catch (e) {
         console.error(e);
         alert("Lỗi: " + e.message);
@@ -1678,106 +1758,324 @@ async function executeBatchEditPhanLoai() {
 
 
 
+let allDashPages = { 'GHI_CHU': 1, 'CHI_TIEU': 1, 'HOC_HOI': 1 };
+const ALL_DASH_ROWS_PER_PAGE = 100;
+let allDashResults = [];
+
 async function renderAllDashboard() {
     const allDash = document.getElementById('allDashboard');
     if (!allDash) return;
     
-    document.getElementById('loading').style.display = 'flex';
+    const tabsToFetch = ['GHI_CHU', 'CHI_TIEU', 'HOC_HOI'];
+    const allCached = tabsToFetch.every(tabName => window.cachedData && window.cachedData[tabName]);
+    if (!allCached) {
+        document.getElementById('loading').style.display = 'flex';
+    }
     allDash.innerHTML = '';
 
     try {
         const token = await getAccessToken();
-        const tabsToFetch = ['GHI_CHU', 'CHI_TIEU', 'HOC_HOI'];
         
         const promises = tabsToFetch.map(async (tabName) => {
             const tabConfig = CONFIG.tabs[tabName];
-            const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${tabConfig.range}`, { headers: { Authorization: `Bearer ${token}` } });
-            const rawData = await res.json();
-            return {
-                tabName,
-                headers: tabConfig.headers,
-                data: (rawData.values || []).map((row, i) => {
+            let data;
+            if (window.cachedData[tabName]) {
+                data = window.cachedData[tabName];
+            } else {
+                const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${tabConfig.range}`, { 
+                    headers: { Authorization: `Bearer ${token}` },
+                    cache: 'no-store'
+                });
+                const rawData = await res.json();
+                data = (rawData.values || []).map((row, i) => {
                     const arr = [...row];
                     arr._sheetRow = i + 2;
                     return arr;
-                })
+                });
+                window.cachedData[tabName] = data;
+            }
+            return {
+                tabName,
+                headers: tabConfig.headers,
+                data: [...data]
             };
         });
 
-        const results = await Promise.all(promises);
+        allDashResults = await Promise.all(promises);
         
-        results.forEach(result => {
-            result.data.reverse();
-            
-            const wrapper = document.createElement('div');
-            wrapper.className = 'table-wrapper';
-            wrapper.style.flex = '1';
-            wrapper.style.minWidth = '300px';
-            wrapper.style.display = 'block';
-            
-            const title = document.createElement('h3');
-            title.textContent = result.tabName === 'GHI_CHU' ? 'Ghi chú' : (result.tabName === 'CHI_TIEU' ? 'Chi tiêu' : 'Học hỏi');
-            title.style.padding = '10px 14px';
-            title.style.margin = '0';
-            title.style.borderBottom = '1px solid #e8edf8';
-            title.style.fontSize = '1.1rem';
-            title.style.color = 'var(--primary)';
-            wrapper.appendChild(title);
-
-            const table = document.createElement('table');
-            table.style.width = '100%';
-            table.style.borderCollapse = 'collapse';
-            
-            const thead = document.createElement('thead');
-            const headerRow = document.createElement('tr');
-            
-            let displayCols = [];
-            if (result.tabName === 'GHI_CHU') displayCols = [1, 4]; // ngay, tieu_de
-            if (result.tabName === 'CHI_TIEU') displayCols = [1, 4, 5]; // ngay, so_tien, hang_muc
-            if (result.tabName === 'HOC_HOI') displayCols = [1, 2]; // ngay, tieu_de
-            
-            displayCols.forEach(idx => {
-                const th = document.createElement('th');
-                th.textContent = result.headers[idx].toUpperCase();
-                th.style.padding = '8px 10px';
-                th.style.textAlign = 'left';
-                th.style.borderBottom = '1px solid #e8edf8';
-                th.style.whiteSpace = 'nowrap';
-                headerRow.appendChild(th);
-            });
-            thead.appendChild(headerRow);
-            table.appendChild(thead);
-            
-            const tbody = document.createElement('tbody');
-            result.data.slice(0, 30).forEach(row => {
-                const tr = document.createElement('tr');
-                displayCols.forEach(idx => {
-                    const td = document.createElement('td');
-                    td.textContent = row[idx] || '';
-                    td.style.padding = '8px 10px';
-                    td.style.borderBottom = '1px solid #f0f3f9';
-                    td.style.fontSize = '0.85rem';
-                    
-                    if (result.headers[idx] === 'so_tien') {
-                        const val = parseFloat((row[idx] || '').toString().replace(/[^\d.-]/g, '')) || 0;
-                        td.textContent = new Intl.NumberFormat('vi-VN').format(val) + ' ₫';
-                        td.style.textAlign = 'right';
-                    }
-                    if (result.headers[idx] === 'ngay') {
-                        td.style.whiteSpace = 'nowrap';
-                    }
-                    tr.appendChild(td);
+        allDashResults.forEach(result => {
+            if (result.tabName === 'CHI_TIEU') {
+                result.data.sort((a, b) => {
+                    const dateDiff = parseSheetDate(a[1]) - parseSheetDate(b[1]);
+                    if (dateDiff !== 0) return dateDiff;
+                    return a._sheetRow - b._sheetRow;
                 });
-                tbody.appendChild(tr);
+                
+                let balances = {};
+                result.data.forEach(row => {
+                    const type = row[2];
+                    const account = row[3];
+                    const amount = parseFloat(String(row[4]).replace(/,/g, '')) || 0;
+                    const targetAccount = row[6];
+                    
+                    if (account && !balances[account]) balances[account] = 0;
+                    
+                    if (type === 'Thu') {
+                        if (account) balances[account] += amount;
+                    } else if (type === 'Chi') {
+                        if (account) balances[account] -= amount;
+                    } else if (type === 'Chuyển khoản') {
+                        if (account) balances[account] -= amount;
+                        let targetBal = 0;
+                        if (targetAccount) {
+                            if (!balances[targetAccount]) balances[targetAccount] = 0;
+                            balances[targetAccount] += amount;
+                            targetBal = balances[targetAccount];
+                        }
+                        row[8] = account ? `${balances[account]}|${targetBal}` : '0|0';
+                    }
+                    if (type !== 'Chuyển khoản') {
+                        row[8] = account ? balances[account] : 0;
+                    }
+                });
+            }
+            
+            result.data.sort((a, b) => {
+                const dateA = parseSheetDate(a[1]);
+                const dateB = parseSheetDate(b[1]);
+                if (dateA !== dateB && dateA !== 0 && dateB !== 0) return dateB - dateA;
+                return b._sheetRow - a._sheetRow;
             });
-            table.appendChild(tbody);
-            wrapper.appendChild(table);
-            allDash.appendChild(wrapper);
+            // Reset to page 1 on load
+            allDashPages[result.tabName] = 1;
         });
+        
+        renderAllDashTables();
         
     } catch (e) {
         console.error(e);
         allDash.innerHTML = `<p style="color:red; padding:20px;">Lỗi tải dữ liệu: ${e.message}</p>`;
+    } finally {
+        document.getElementById('loading').style.display = 'none';
+    }
+}
+
+function renderAllDashTables() {
+    const allDash = document.getElementById('allDashboard');
+    if (!allDash) return;
+    
+    let html = `<div style="display:flex; flex-direction:row; gap:20px; width:100%; align-items:stretch; padding-bottom: 20px;">`;
+    
+    allDashResults.forEach(result => {
+        const currentPage = allDashPages[result.tabName] || 1;
+        const start = (currentPage - 1) * ALL_DASH_ROWS_PER_PAGE;
+        const end = start + ALL_DASH_ROWS_PER_PAGE;
+        const pageData = result.data.slice(start, end);
+        const totalPages = Math.ceil(result.data.length / ALL_DASH_ROWS_PER_PAGE) || 1;
+        
+        let colTitle = '';
+        let colIcon = '';
+        let displayCols = [];
+        
+        if (result.tabName === 'GHI_CHU') { 
+            colTitle = 'GHI CHÚ'; 
+            colIcon = 'book-open'; 
+            displayCols = ['ngay', 'tieu_de', 'noi_dung', 'phan_loai'];
+        }
+        if (result.tabName === 'CHI_TIEU') { 
+            colTitle = 'CHI TIÊU'; 
+            colIcon = 'wallet'; 
+            displayCols = ['ngay', 'loai_giao_dich', 'tai_khoan', 'so_tien', 'hang_muc', 'ghi_chu', 'tai_khoan_nhan', 'so_du_ao'];
+        }
+        if (result.tabName === 'HOC_HOI') { 
+            colTitle = 'HỌC HỎI'; 
+            colIcon = 'graduation-cap'; 
+            displayCols = ['ngay', 'tieu_de', 'noi_dung', 'link', 'tag'];
+        }
+        
+        let tableHtml = `
+            <div style="height: calc(100vh - 120px); flex: 1; min-width: 0; display:flex; flex-direction:column; background:var(--surface, #ffffff); border-radius:12px; padding:16px; box-shadow:0 1px 3px rgba(0,0,0,0.1); border:1px solid #e2e8f0;">
+                <div style="font-size:1.1rem; font-weight:700; color:var(--primary, #5b5ef4); margin-bottom:16px; display:flex; align-items:center; justify-content:space-between; gap:8px;">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <i data-lucide="${colIcon}" style="width:20px;height:20px;"></i> ${colTitle}
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button onclick="openRecordFormFromDash('${result.tabName}')" style="background:var(--success, #10b981); color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:0.85rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                            Thêm mới
+                        </button>
+                        <button onclick="switchTab('${result.tabName}')" style="background:var(--primary, #5b5ef4); color:#fff; border:none; border-radius:6px; padding:6px 12px; font-size:0.85rem; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                            Mở module
+                        </button>
+                    </div>
+                </div>
+                <div style="overflow:auto; flex:1;">
+                    <table style="width:100%; min-width:${result.tabName === 'CHI_TIEU' ? '800px' : '600px'}; table-layout:fixed; border-collapse:collapse; font-size:0.9rem; word-wrap: break-word;">
+                        <thead style="position: sticky; top: 0; background: var(--surface, #ffffff); z-index: 10;">
+                            <tr>
+        `;
+        
+        displayCols.forEach(h => {
+            let extraStyle = '';
+            if (h === 'ngay') {
+                extraStyle = 'width: 95px;';
+            } else if (result.tabName === 'GHI_CHU') {
+                if (h === 'phan_loai') extraStyle = 'width: 15%;';
+                if (h === 'tieu_de' || h === 'noi_dung') extraStyle = 'width: 42%;';
+            } else if (result.tabName === 'HOC_HOI') {
+                if (h === 'tag') extraStyle = 'width: 15%;';
+                if (h === 'link') extraStyle = 'width: 10%;';
+                if (h === 'tieu_de' || h === 'noi_dung') extraStyle = 'width: 37%;';
+            } else if (result.tabName === 'CHI_TIEU') {
+                if (h === 'loai_giao_dich') extraStyle = 'width: 10%;';
+                if (h === 'tai_khoan' || h === 'tai_khoan_nhan') extraStyle = 'width: 12%;';
+                if (h === 'so_tien' || h === 'so_du_ao') extraStyle = 'width: 12%;';
+                if (h === 'hang_muc') extraStyle = 'width: 10%;';
+                if (h === 'ghi_chu') extraStyle = 'width: 25%;';
+            }
+            tableHtml += `<th style="padding:10px; text-align:left; border-bottom:2px solid #e2e8f0; color:#64748b; font-weight:600; white-space:nowrap; text-transform:uppercase; ${extraStyle}">${h}</th>`;
+        });
+        tableHtml += `</tr></thead><tbody>`;
+        
+        pageData.forEach(row => {
+            const sheetRow = row._sheetRow;
+            const safeRow = JSON.stringify(row).replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/\\n/g, "\\\\n").replace(/\\r/g, "");
+            
+            tableHtml += `<tr style="border-bottom:1px solid #f1f5f9; cursor:pointer;" class="table-row-hover" ondblclick='openRecordFormFromDash("${result.tabName}", ${safeRow}, ${sheetRow})'>`;
+            
+            displayCols.forEach(h => {
+                const idx = result.headers.indexOf(h);
+                let cellVal = idx !== -1 && row[idx] !== undefined && row[idx] !== null ? row[idx] : '';
+                
+                if (h === 'anh' && result.tabName === 'HOC_HOI') {
+                    if (cellVal && String(cellVal).startsWith('http')) {
+                        cellVal = `<img src="${cellVal}" style="max-height: 40px; border-radius: 4px;">`;
+                    }
+                } else if (h === 'link' || h === 'file') {
+                    if (cellVal && String(cellVal).startsWith('http')) {
+                        cellVal = `<a href="${cellVal}" target="_blank" style="color:var(--primary);">[Link]</a>`;
+                    }
+                } else if (h === 'ngay') {
+                    cellVal = `<div style="white-space:nowrap;">${cellVal}</div>`;
+                } else if (h === 'so_tien' || h === 'so_du_ao') {
+                    cellVal = `<div style="white-space:nowrap; text-align:right; font-weight:600;">${cellVal}</div>`;
+                } else if (result.tabName === 'GHI_CHU' && h === 'tieu_de') {
+                    cellVal = `<div style="overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; white-space:normal; line-height:1.4;">${cellVal}</div>`;
+                } else {
+                    if (String(cellVal).length > 50) {
+                        cellVal = `<div class="line-clamp-2" style="overflow:hidden; text-overflow:ellipsis; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; white-space:normal;">${cellVal}</div>`;
+                    } else {
+                        cellVal = `<div style="white-space:normal;">${cellVal}</div>`;
+                    }
+                }
+                
+                tableHtml += `<td style="padding:10px;">${cellVal}</td>`;
+            });
+            
+            tableHtml += `</tr>`;
+        });
+        
+        if (pageData.length === 0) {
+            tableHtml += `<tr><td colspan="${displayCols.length}" style="padding:20px; text-align:center; color:#94a3b8;">Chưa có dữ liệu.</td></tr>`;
+        }
+        
+        tableHtml += `</tbody></table></div>`;
+        
+        if (totalPages > 1) {
+            tableHtml += `
+                <div class="pagination" style="display:flex; justify-content:center; align-items:center; gap:15px; margin-top:20px; padding-top:10px; border-top:1px solid #e2e8f0;">
+                    <button class="pagination-btn" onclick="changeAllDashPage('${result.tabName}', -1)" ${currentPage === 1 ? 'disabled' : ''}>Trước</button>
+                    <span class="page-info">Trang ${currentPage} / ${totalPages}</span>
+                    <button class="pagination-btn" onclick="changeAllDashPage('${result.tabName}', 1)" ${currentPage === totalPages ? 'disabled' : ''}>Sau</button>
+                </div>
+            `;
+        }
+        
+        tableHtml += `</div>`;
+        html += tableHtml;
+    });
+
+    html += `</div>`;
+    
+    allDash.innerHTML = html;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function changeAllDashPage(tabName, delta) {
+    if(!allDashPages[tabName]) allDashPages[tabName] = 1;
+    allDashPages[tabName] += delta;
+    renderAllDashTables();
+}
+
+function openRecordFormFromDash(tabName, rowData = null, sheetRow = null) {
+    currentTab = tabName;
+    if (window.cachedData && window.cachedData[tabName]) {
+        allData = window.cachedData[tabName];
+    } else {
+        allData = [];
+    }
+    openRecordForm(rowData, sheetRow);
+}
+
+// Kanban Drag and Drop Functions
+function dragStart(event, sheetRow) {
+    event.dataTransfer.setData("text/plain", sheetRow);
+    event.dataTransfer.effectAllowed = "move";
+}
+
+function allowDrop(event) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+}
+
+async function dropTask(event, newStatus) {
+    event.preventDefault();
+    const sheetRow = event.dataTransfer.getData("text/plain");
+    if (!sheetRow) return;
+
+    // Find the task in allData
+    const taskIndex = allData.findIndex(row => row._sheetRow == sheetRow);
+    if (taskIndex === -1) return;
+    
+    const task = allData[taskIndex];
+    if (task[5] === newStatus) return; // status didn't change
+    
+    // Update local data for immediate feedback
+    task[5] = newStatus;
+    
+    // Also update filteredData so it renders correctly
+    const fTaskIndex = filteredData.findIndex(row => row._sheetRow == sheetRow);
+    if (fTaskIndex !== -1) {
+        filteredData[fTaskIndex][5] = newStatus;
+    }
+    
+    renderKanban(); // re-render locally immediately
+
+    // Send API update
+    document.getElementById('loading').style.display = 'flex';
+    try {
+        const token = await getAccessToken();
+        const tabConfig = CONFIG.tabs['CONG_VIEC'];
+        const statusColIndex = tabConfig.headers.indexOf('trang_thai'); // 5
+        const colLetter = String.fromCharCode(65 + statusColIndex); // F
+        
+        await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/CONG_VIEC!${colLetter}${sheetRow}?valueInputOption=RAW`, {
+            method: 'PUT',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                values: [[newStatus]]
+            })
+        });
+        
+        // Invalidate cache
+        if (window.cachedData) window.cachedData['CONG_VIEC'] = null;
+    } catch (err) {
+        console.error("Error updating status:", err);
+        alert("Lỗi khi cập nhật trạng thái!");
+        // Revert on error
+        await fetchData(true);
     } finally {
         document.getElementById('loading').style.display = 'none';
     }
