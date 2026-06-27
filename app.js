@@ -1381,12 +1381,7 @@ function filterTable() {
     });
 
     currentPage = 1;
-    renderTable();
-    if (currentTab === 'CHI_TIEU') {
-        renderExpenseDashboard();
-    } else if (currentTab === 'CONG_VIEC') {
-        renderTaskDashboard();
-    }
+    dispatchViewRender();
 }
 
 function renderTabFilters() {
