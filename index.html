@@ -63,6 +63,10 @@
                     <i data-lucide="layers" style="width:18px;height:18px;"></i>
                     <span>Tất cả</span>
                 </div>
+                <div class="tab" id="tab_LICH" data-tab="LICH" onclick="switchTab('LICH')">
+                    <i data-lucide="calendar" style="width:18px;height:18px;"></i>
+                    <span>Lịch</span>
+                </div>
                 <div class="tab active" id="tab_GHI_CHU" data-tab="GHI_CHU" onclick="switchTab('GHI_CHU')">
                     <i data-lucide="book-open" style="width:18px;height:18px;"></i>
                     <span>Ghi chú</span>
@@ -271,10 +275,51 @@
         </div>
     </div>
 
+    <!-- ===== ADD SELECTION MODAL ===== -->
+    <div class="modal-mask" id="addSelectionModal" style="display:none;"
+        onmousedown="if(event.target===this) this.style.display='none'">
+        <div class="modal" style="width:300px;height:auto;border-radius:14px;margin:auto;">
+            <div class="modal-header">
+                <h2>Chọn loại dữ liệu</h2>
+                <button type="button" class="icon-btn" onclick="document.getElementById('addSelectionModal').style.display='none'" title="Đóng">
+                    <i data-lucide="x" style="width:18px;height:18px;"></i>
+                </button>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:10px;padding:10px;">
+                <button class="add-btn" style="width:100%;justify-content:center;" onclick="window.openRecordFormFromDash('GHI_CHU'); document.getElementById('addSelectionModal').style.display='none'">
+                    <i data-lucide="book-open" style="width:16px;height:16px;"></i> Ghi chú
+                </button>
+                <button class="add-btn" style="width:100%;justify-content:center;" onclick="window.openRecordFormFromDash('CHI_TIEU'); document.getElementById('addSelectionModal').style.display='none'">
+                    <i data-lucide="wallet" style="width:16px;height:16px;"></i> Chi tiêu
+                </button>
+                <button class="add-btn" style="width:100%;justify-content:center;" onclick="window.openRecordFormFromDash('CONG_VIEC'); document.getElementById('addSelectionModal').style.display='none'">
+                    <i data-lucide="check-square" style="width:16px;height:16px;"></i> Công việc
+                </button>
+                <button class="add-btn" style="width:100%;justify-content:center;" onclick="window.openRecordFormFromDash('HOC_HOI'); document.getElementById('addSelectionModal').style.display='none'">
+                    <i data-lucide="lightbulb" style="width:16px;height:16px;"></i> Học hỏi
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== DAY VIEW MODAL ===== -->
+    <div class="modal-mask" id="dayViewModal" style="display:none;"
+        onmousedown="if(event.target===this) closeDayView()">
+        <div class="modal" style="width:400px;height:auto;max-height:80vh;border-radius:14px;margin:auto;">
+            <div class="modal-header">
+                <h2 id="dayViewTitle">Chi tiết ngày</h2>
+                <button type="button" class="icon-btn" onclick="closeDayView()" title="Đóng">
+                    <i data-lucide="x" style="width:18px;height:18px;"></i>
+                </button>
+            </div>
+            <div id="dayViewList" style="padding: 10px;"></div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="app.js?v=20260624_01"></script>
     <script src="quick_add.js?v=20260624_01"></script>
-    <script src="patch.js?v=20260624_01"></script>
+    <script src="calendar.js?v=20260627_01"></script>
 
     <!-- PWA: Service Worker + Notifications -->
     <script>

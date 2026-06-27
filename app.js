@@ -47,6 +47,10 @@ sR2Sh8e3h3Knd6j1tceRIFU=
         'HOC_HOI': {
             range: 'HOC_HOI!A2:H',
             headers: ['id', 'ngay', 'tieu_de', 'noi_dung', 'link', 'anh', 'file', 'tag']
+        },
+        'DSNV': {
+            range: 'DSNV!A2:J',
+            headers: ['id', 'ho_ten', 'hinh_anh', 'gioi_tinh', 'ngay_sinh', 'quyen', 'mk', 'udt', 'sdt', 'hashtag']
         }
     }
 };
