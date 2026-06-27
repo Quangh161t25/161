@@ -5,7 +5,7 @@
 //  - Push notification support
 // ============================================================
 
-const CACHE_NAME = 'infosys-v3';
+const CACHE_NAME = 'infosys-v4';
 const STATIC_ASSETS = [
   './',
   './index.html',
