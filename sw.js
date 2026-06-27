@@ -5,7 +5,7 @@
 //  - Push notification support
 // ============================================================
 
-const CACHE_NAME = 'infosys-v1';
+const CACHE_NAME = 'infosys-v2';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -70,17 +70,20 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for local assets
+  // Network-first for local assets to ensure updates are visible
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      if (cached) return cached;
-      return fetch(event.request).then(response => {
-        if (response && response.status === 200 && response.type === 'basic') {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return response;
-      }).catch(() => cached || new Response('Offline', { status: 503 }));
+    fetch(event.request).then(response => {
+      if (response && response.status === 200 && response.type === 'basic') {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+      }
+      return response;
+    }).catch(() => {
+      // Fallback to cache if network fails (offline mode)
+      return caches.match(event.request).then(cached => {
+        if (cached) return cached;
+        return new Response('Offline', { status: 503 });
+      });
     })
   );
 });
