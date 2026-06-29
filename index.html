@@ -13,8 +13,9 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-    <link rel="stylesheet" href="styles.css?v=20260627_04">
+    <link rel="stylesheet" href="styles.css?v=20260627_22">
 
     <!-- PWA -->
     <link rel="manifest" href="manifest.json">
@@ -83,6 +84,14 @@
                     <i data-lucide="lightbulb" style="width:18px;height:18px;"></i>
                     <span>Học hỏi</span>
                 </div>
+                <div class="tab" id="tab_DSNV" data-tab="DSNV" onclick="switchTab('DSNV')">
+                    <i data-lucide="users" style="width:18px;height:18px;"></i>
+                    <span>Con người</span>
+                </div>
+                <div class="tab" id="tab_THONG_KE" data-tab="THONG_KE" onclick="switchTab('THONG_KE')">
+                    <i data-lucide="pie-chart" style="width:18px;height:18px;"></i>
+                    <span>Thống kê</span>
+                </div>
                 <div class="tab" id="tab_THEM" data-tab="THEM" onclick="switchTab('THEM')">
                     <i data-lucide="plus-circle" style="width:18px;height:18px;"></i>
                     <span>Thêm nhanh</span>
@@ -96,8 +105,18 @@
             <!-- Header / filter bar -->
             <div class="header-container">
                 <div id="headerActions">
+                    
+                    <!-- Global Search -->
+                    <div class="search-container global-search" style="position:relative;">
+                        <i data-lucide="globe" class="search-icon" style="width:16px;height:16px;color:#3b82f6;"></i>
+                        <input type="text" id="globalSearchInput" class="search-input"
+                            placeholder="Tìm toàn cục..."
+                            oninput="doGlobalSearch()" style="border-color:#bfdbfe; background:#eff6ff;">
+                        <div id="globalSearchResults" style="display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #e2e8f0; border-radius:8px; margin-top:5px; max-height:400px; overflow-y:auto; z-index:100; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1);">
+                        </div>
+                    </div>
 
-                    <!-- Search -->
+                    <!-- Local Search -->
                     <div class="search-container">
                         <i data-lucide="search" class="search-icon" style="width:16px;height:16px;"></i>
                         <input type="text" id="searchInput" class="search-input"
@@ -140,6 +159,14 @@
                         style="display:none; background:var(--primary); color:#fff; border:none; padding:9px 14px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.84rem;">
                         Sửa phân loại
                     </button>
+                    <button id="batchEditGioiTinhBtn" type="button" onclick="openBatchEditGioiTinh()"
+                        style="display:none; background:var(--primary); color:#fff; border:none; padding:9px 14px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.84rem;">
+                        Sửa giới tính
+                    </button>
+                    <button id="batchEditHashtagBtn" type="button" onclick="openBatchEditHashtag()"
+                        style="display:none; background:var(--primary); color:#fff; border:none; padding:9px 14px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.84rem;">
+                        Sửa hashtag
+                    </button>
                     <button id="batchDeleteBtn" type="button" onclick="batchDelete()"
                         style="display:none; background:#ef4444; color:#fff; border:none; padding:9px 14px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.84rem;">
                         Xóa chọn
@@ -167,6 +194,7 @@
             <div id="taskDashboard"      class="expense-dashboard" style="display:none; margin-bottom:20px;"></div>
             <div id="todayDashboard"     style="display:none; margin-bottom:20px;"></div>
             <div id="calendarDashboard"  style="display:none; margin-bottom:20px;"></div>
+            <div id="analyticsDashboard" style="display:none; margin-bottom:20px;"></div>
             <div id="kanbanDashboard"    style="display:none; margin-bottom:20px;"></div>
             <div id="allDashboard"       style="display:none; gap: 20px; overflow-x: auto; margin-bottom:20px; align-items: flex-start; padding-bottom: 10px;"></div>
 
@@ -253,21 +281,21 @@
         onmousedown="if(event.target===this) closeBatchEditModal()">
         <div class="modal" style="width:460px;height:auto;max-height:80vh;border-radius:14px;margin:auto;">
             <div class="modal-header">
-                <h2>Sửa phân loại hàng loạt</h2>
+                <h2 id="batchEditModalTitle">Sửa hàng loạt</h2>
                 <button type="button" class="icon-btn" onclick="closeBatchEditModal()" title="Đóng">
                     <i data-lucide="x" style="width:18px;height:18px;"></i>
                 </button>
             </div>
             <div class="form-fields" style="grid-template-columns:1fr; overflow-y:auto; max-height:50vh;">
                 <label>
-                    PHÂN LOẠI MỚI
-                    <div id="batchEditTagButtons" class="tag-buttons" style="margin-bottom:8px;"></div>
-                    <input type="text" id="batchEditPhanLoaiInput" placeholder="Nhập hoặc chọn phân loại...">
+                    <span id="batchEditModalLabel" style="font-weight:600; font-size:12px; color:#64748b; margin-bottom:5px; display:block;">GIÁ TRỊ MỚI</span>
+                    <input type="text" id="batchEditPhanLoaiInput" placeholder="Nhập hoặc chọn..." style="margin-bottom:8px;" oninput="if(window.updateBatchEditTagButtons) window.updateBatchEditTagButtons()">
+                    <div id="batchEditTagButtons" class="tag-buttons" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
                 </label>
             </div>
             <div class="modal-actions">
                 <button type="button" class="secondary-btn" onclick="closeBatchEditModal()">Hủy</button>
-                <button type="button" class="primary-btn" onclick="executeBatchEditPhanLoai()">
+                <button type="button" class="primary-btn" onclick="executeBatchEditGeneric()">
                     <i data-lucide="save" style="width:15px;height:15px;"></i>
                     Lưu
                 </button>
@@ -317,9 +345,9 @@
     </div>
 
     <!-- Scripts -->
-    <script src="app.js?v=20260627_04"></script>
-    <script src="quick_add.js?v=20260627_04"></script>
-    <script src="calendar.js?v=20260627_04"></script>
+    <script src="app.js?v=20260627_22"></script>
+    <script src="quick_add.js?v=20260627_22"></script>
+    <script src="calendar.js?v=20260627_22"></script>
 
     <!-- PWA: Service Worker + Notifications -->
     <script>

@@ -50,7 +50,7 @@ sR2Sh8e3h3Knd6j1tceRIFU=
         },
         'DSNV': {
             range: 'DSNV!A2:J',
-            headers: ['id', 'ho_ten', 'hinh_anh', 'gioi_tinh', 'ngay_sinh', 'quyen', 'mk', 'udt', 'sdt', 'hashtag']
+            headers: ['id', 'ho_ten', 'hinh_anh', 'gioi_tinh', 'ngay_sinh', 'quyen', 'mk', 'email', 'sdt', 'hashtag']
         }
     }
 };
@@ -260,10 +260,48 @@ let filteredData = [];
 let editingSheetRow = null;
 let currentPage = 1;
 const rowsPerPage = 100;
-let activePhanLoaiFilter = null;
+let activePhanLoaiFilter = [];
 let activeExpenseFilters = {};
 let activeTaskFilters = {};
 let mapInstance = null, mapMarker = null;
+let currentSortCol = null;
+let currentSortAsc = true;
+
+function sortTable(colName) {
+    if (!CONFIG.tabs[currentTab]) return;
+    const colIndex = CONFIG.tabs[currentTab].headers.indexOf(colName);
+    if (colIndex === -1) return;
+
+    if (currentSortCol === colName) {
+        currentSortAsc = !currentSortAsc;
+    } else {
+        currentSortCol = colName;
+        currentSortAsc = true;
+    }
+
+    allData.sort((a, b) => {
+        let valA = a[colIndex] || '';
+        let valB = b[colIndex] || '';
+        
+        // Ensure sheetRow is preserved if values are equal
+        if (valA === valB) {
+            return b._sheetRow - a._sheetRow;
+        }
+        
+        const numA = parseFloat(String(valA).replace(/,/g, ''));
+        const numB = parseFloat(String(valB).replace(/,/g, ''));
+        if (!isNaN(numA) && !isNaN(numB) && String(valA).trim() !== '' && String(valB).trim() !== '') {
+            return currentSortAsc ? numA - numB : numB - numA;
+        }
+
+        return currentSortAsc 
+            ? String(valA).localeCompare(String(valB), 'vi', { sensitivity: 'base' })
+            : String(valB).localeCompare(String(valA), 'vi', { sensitivity: 'base' });
+    });
+    
+    // update filteredData and render
+    filterTable();
+}
 
 async function getAccessToken() {
     if (accessToken && Date.now() < tokenExpiry - 300000) return accessToken;
@@ -293,6 +331,8 @@ async function switchTab(tabName) {
         currentTab = '';
     } else if (tabName === 'TAT_CA') {
         currentTab = '';
+    } else if (tabName === 'THONG_KE') {
+        currentTab = '';
     } else {
         currentTab = CONFIG.tabs[tabName] ? tabName : '';
     }
@@ -307,6 +347,7 @@ async function switchTab(tabName) {
     const taskDash = document.getElementById('taskDashboard');
     const todayDash = document.getElementById('todayDashboard');
     const calDash = document.getElementById('calendarDashboard');
+    const analyticsDash = document.getElementById('analyticsDashboard');
     const tableWrap = document.getElementById('tableWrapper');
     const pagination = document.getElementById('pagination');
     const phanLoaiFilterContainer = document.getElementById('phanLoaiFilterContainer');
@@ -317,6 +358,7 @@ async function switchTab(tabName) {
     if (taskDash) taskDash.style.display = currentView === 'CONG_VIEC' ? 'grid' : 'none';
     if (todayDash) todayDash.style.display = currentView === 'HOM_NAY' ? 'block' : 'none';
     if (calDash) calDash.style.display = currentView === 'LICH' ? 'block' : 'none';
+    if (analyticsDash) analyticsDash.style.display = currentView === 'THONG_KE' ? 'block' : 'none';
     
     const viewToggleBtn = document.getElementById('viewToggleBtn');
     if (viewToggleBtn) viewToggleBtn.style.display = currentView === 'CONG_VIEC' ? 'inline-flex' : 'none';
@@ -327,13 +369,13 @@ async function switchTab(tabName) {
     const allDash = document.getElementById('allDashboard');
     if (allDash) allDash.style.display = currentView === 'TAT_CA' ? 'flex' : 'none';
 
-    if(!currentTab && currentView !== 'THEM' && currentView !== 'TAT_CA') {
+    if(!currentTab && currentView !== 'THEM' && currentView !== 'TAT_CA' && currentView !== 'THONG_KE') {
         if(tableWrap) tableWrap.style.display = 'none';
         if(pagination) pagination.style.display = 'none';
         return;
     }
     
-    if (currentView === 'HOM_NAY' || currentView === 'LICH' || currentView === 'THEM' || currentView === 'TAT_CA') {
+    if (currentView === 'HOM_NAY' || currentView === 'LICH' || currentView === 'THEM' || currentView === 'TAT_CA' || currentView === 'THONG_KE') {
         if(tableWrap) tableWrap.style.display = 'none';
         if(pagination) pagination.style.display = 'none';
         if(phanLoaiFilterContainer) phanLoaiFilterContainer.style.display = 'none';
@@ -346,13 +388,15 @@ async function switchTab(tabName) {
             renderQuickAddForms();
         } else if (currentView === 'TAT_CA') {
             renderAllDashboard();
+        } else if (currentView === 'THONG_KE') {
+            renderAnalytics();
         }
     } else {
         if(tableWrap) tableWrap.style.display = 'block';
         if(pagination) pagination.style.display = 'flex';
         if(phanLoaiFilterContainer) phanLoaiFilterContainer.style.display = 'flex';
         if(searchInput) searchInput.style.display = 'flex';
-        if(dateFilters) dateFilters.style.display = 'flex';
+        if(dateFilters) dateFilters.style.display = currentView === 'DSNV' ? 'none' : 'flex';
         const addBtn = document.querySelector('.add-btn');
         if (addBtn) addBtn.style.display = 'inline-flex';
     }
@@ -369,6 +413,8 @@ function dispatchViewRender() {
         renderTodayTasks();
     } else if (currentView === 'LICH') {
         renderCalendar();
+    } else if (currentView === 'THONG_KE') {
+        renderAnalytics();
     } else {
         renderHeaders();
         renderTabFilters();
@@ -432,13 +478,17 @@ async function fetchData(forceReload = false) {
             arr._sheetRow = i + 2;
             return arr;
         });
+
+        if (currentTab === 'DSNV') {
+            allData.sort((a, b) => (a[1] || '').localeCompare(b[1] || '', 'vi', { sensitivity: 'base' }));
+        }
         if (currentTab === 'CHI_TIEU') {
             calculateExpenseBalances();
         } else if (currentTab === 'CONG_VIEC') {
             allData.sort((a, b) => {
-                const dateA = parseSheetDate(a[7]); // deadline
-                const dateB = parseSheetDate(b[7]);
-                if (dateA !== dateB && dateA !== 0 && dateB !== 0) return dateA - dateB;
+                const dateA = parseSheetDate(a[6]); // ngay_bat_dau
+                const dateB = parseSheetDate(b[6]);
+                if (dateA !== dateB && dateA !== 0 && dateB !== 0) return dateB - dateA;
                 return b._sheetRow - a._sheetRow;
             });
         } else {
@@ -555,11 +605,11 @@ function openRecordForm(rowData = null, sheetRow = null) {
             ['Lập trình', 'Thiết kế', 'Công cụ', 'Bài viết hay'].forEach(t => existingTags.add(t));
 
             const tagsHtml = Array.from(existingTags).map(t =>
-                `<button type="button" class="tag-btn" onclick="const input = document.getElementById('input_${h}'); const currentVals = input.value.split(',').map(s => s.trim()).filter(s => s); if(!currentVals.includes('${t.replace(/'/g, "&#39;")}')) { currentVals.push('${t.replace(/'/g, "&#39;")}'); input.value = currentVals.join(', '); }">${t}</button>`
+                `<button type="button" class="tag-btn" data-tag="${t.replace(/"/g, '&quot;')}" onclick="window.toggleTag('input_${h}', '${t.replace(/'/g, "\\'")}')">${t}</button>`
             ).join('');
 
             inputHtml = `
-                <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập hoặc chọn nhiều tag (cách nhau bởi dấu phẩy)...">
+                <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập hoặc chọn nhiều tag (cách nhau bởi dấu phẩy)..." oninput="if(window.updateTagButtonsUI) window.updateTagButtonsUI('input_${h}')">
                 <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
             `;
         } else if (h === 'noi_dung') {
@@ -661,6 +711,48 @@ function openRecordForm(rowData = null, sheetRow = null) {
                 <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập hoặc chọn tài khoản...">
                 <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
             `;
+        } else if (h === 'ngay_sinh') {
+            let dateVal = val;
+            if (val && String(val).includes('/')) {
+                const parts = String(val).split('/');
+                if (parts.length === 3) dateVal = `${parts[2]}-${parts[1]}-${parts[0]}`;
+            }
+            inputHtml = `<input type="date" id="input_${h}" name="${h}" value="${dateVal}">`;
+        } else if (h === 'email') {
+            inputHtml = `<input type="email" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập địa chỉ email...">`;
+        } else if (h === 'gioi_tinh') {
+            const opts = ['Nam', 'Nữ'];
+            const tagsHtml = opts.map(o =>
+                `<button type="button" class="tag-btn" onclick="document.getElementById('input_${h}').value='${o}'">${o}</button>`
+            ).join('');
+            inputHtml = `
+                <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Chọn hoặc nhập giới tính...">
+                <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
+            `;
+        } else if (h === 'hashtag') {
+            const colIndex = tabConfig.headers.indexOf('hashtag');
+            const allTags = allData.map(row => row[colIndex]).filter(v => v && typeof v === 'string' && v.trim() !== '').flatMap(v => v.split(',').map(s => s.trim()));
+            const existingTags = new Set(allTags);
+            
+            const tagsHtml = Array.from(existingTags).map(t =>
+                `<button type="button" class="tag-btn" data-tag="${t.replace(/"/g, '&quot;')}" onclick="window.toggleTag('input_${h}', '${t.replace(/'/g, "\\'")}')">${t}</button>`
+            ).join('');
+
+            inputHtml = `
+                <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập hoặc chọn hashtag..." oninput="if(window.updateTagButtonsUI) window.updateTagButtonsUI('input_${h}')">
+                <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
+            `;
+        }
+        if (h.includes('anh') || h.includes('hinh') || h.includes('avatar') || h === 'link' || h === 'link_anh') {
+            inputHtml += `
+                <div style="margin-top: 5px; display:flex; gap:10px; align-items:center;">
+                    <input type="file" id="file_${h}" accept="image/*" style="display:none;" onchange="uploadToImgbb(this, 'input_${h}')">
+                    <button type="button" class="tag-btn" onclick="document.getElementById('file_${h}').click()" style="background:#e0f2fe; color:#0369a1; display:flex; align-items:center;">
+                        <i data-lucide="upload-cloud" style="width:14px;height:14px;margin-right:4px;"></i> Tải ảnh lên
+                    </button>
+                    <span id="upload_status_${h}" style="font-size:0.8rem; color:#64748b;"></span>
+                </div>
+            `;
         }
         return `<div class="form-group"><label>${h.toUpperCase()}</label>${inputHtml}</div>`;
     }).join('');
@@ -668,6 +760,13 @@ function openRecordForm(rowData = null, sheetRow = null) {
     document.getElementById('productModal').style.display = 'flex';
     if (typeof lucide !== 'undefined') lucide.createIcons();
 
+    setTimeout(() => {
+        if (window.updateTagButtonsUI) {
+            if (document.getElementById('input_hashtag')) window.updateTagButtonsUI('input_hashtag');
+            if (document.getElementById('input_tag')) window.updateTagButtonsUI('input_tag');
+        }
+    }, 10);
+    
     if (tabConfig.headers.includes('map')) {
         setTimeout(() => {
             initMapPicker(document.getElementById('input_map').value);
@@ -965,7 +1064,7 @@ async function saveRecordFromForm(e) {
             let val = document.getElementById(`input_${h}`) ? document.getElementById(`input_${h}`).value : '';
 
             // Format to DD/MM/YYYY
-            if (h === 'ngay' && val) {
+            if ((h === 'ngay' || h === 'ngay_sinh') && val) {
                 const [y, m, d] = val.split('-');
                 if (y && m && d) val = `${d}/${m}/${y}`;
             } else if (['ngay_in', 'ngay_out', 'ngay_bat_dau', 'deadline', 'ngay_hoan_thanh'].includes(h) && val) {
@@ -1031,7 +1130,7 @@ function renderHeaders() {
     const head = document.getElementById('tableHead');
     if (!CONFIG.tabs[currentTab]) return;
     let hiddenCols = ['trang_thai', 'dia_chi', 'map'];
-    if (currentTab !== 'HOC_HOI' && currentTab !== 'CONG_VIEC') hiddenCols.push('anh');
+    if (currentTab !== 'HOC_HOI' && currentTab !== 'CONG_VIEC' && currentTab !== 'DSNV') hiddenCols.push('anh', 'hinh_anh');
     const ths = CONFIG.tabs[currentTab].headers.map((h, i) => {
         if (i === 0 || hiddenCols.includes(h)) return '';
         let style = '';
@@ -1045,13 +1144,26 @@ function renderHeaders() {
             else if (h === 'hang_muc' || h === 'hashtag') style = 'style="width: 10%;"';
             else if (h === 'ghi_chu') style = 'style="width: auto;"';
         } else if (currentTab === 'CONG_VIEC') {
-            if (h === 'mo_ta' || h === 'ghi_chu' || h === 'file_dinh_kem' || h === 'link_lien_quan') return '';
-            if (h === 'tieu_de') style = 'style="width: auto;"';
+            if (h === 'ghi_chu' || h === 'file_dinh_kem' || h === 'link_lien_quan') return '';
+            if (h === 'tieu_de' || h === 'mo_ta') style = 'style="width: auto;"';
             else style = 'style="white-space: nowrap; width: 10%;"';
         }
-        return `<th ${style}>${h.toUpperCase()}</th>`;
+        
+        let sortHtml = '';
+        if (h !== 'anh' && h !== 'hinh_anh' && h !== 'map' && h !== 'dia_chi') {
+            let sortIcon = 'arrow-up-down';
+            if (currentSortCol === h) {
+                sortIcon = currentSortAsc ? 'arrow-up' : 'arrow-down';
+            }
+            sortHtml = `<span onclick="sortTable('${h}')" style="cursor:pointer; margin-left:4px; display:inline-flex; align-items:center; opacity:${currentSortCol === h ? '1' : '0.4'};">
+                <i data-lucide="${sortIcon}" style="width:14px; height:14px;"></i>
+            </span>`;
+        }
+        
+        return `<th ${style}><div style="display:flex; align-items:center;">${h.toUpperCase()}${sortHtml}</div></th>`;
     }).join('');
     head.innerHTML = `<tr><th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAll" onclick="toggleSelectAll()"></th>${ths}</tr>`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function renderTable() {
@@ -1060,7 +1172,7 @@ function renderTable() {
     if (!tabConfig) return;
 
     let hiddenCols = ['trang_thai', 'dia_chi', 'map'];
-    if (currentTab !== 'HOC_HOI' && currentTab !== 'CONG_VIEC') hiddenCols.push('anh');
+    if (currentTab !== 'HOC_HOI' && currentTab !== 'CONG_VIEC' && currentTab !== 'DSNV') hiddenCols.push('anh', 'hinh_anh');
     const start = (currentPage - 1) * rowsPerPage;
     const end = start + rowsPerPage;
     const pageData = filteredData.slice(start, end);
@@ -1173,7 +1285,7 @@ function renderTable() {
                     else if (h === 'hang_muc' || h === 'hashtag') tdStyle = 'style="width: 10%;"';
                     else if (h === 'ghi_chu') tdStyle = 'style="width: auto;"';
                 } else if (currentTab === 'CONG_VIEC') {
-                    if (h === 'mo_ta' || h === 'ghi_chu' || h === 'file_dinh_kem' || h === 'link_lien_quan') return ''; // skip rendering these long columns
+                    if (h === 'ghi_chu' || h === 'file_dinh_kem' || h === 'link_lien_quan') return ''; // skip rendering these long columns
 
                     if (h === 'muc_uu_tien') {
                         if (cellVal === 'Cao') cellVal = '<span style="color:#ef4444; font-weight:bold;">Cao</span>';
@@ -1195,7 +1307,7 @@ function renderTable() {
                         if (cellVal && cellVal.startsWith('http')) {
                             cellVal = `<a href="${cellVal}" target="_blank" style="color:var(--primary); text-decoration:underline; font-weight:bold;">[Mở Link]</a>`;
                         }
-                    } else if (h === 'anh') {
+                    } else if (h === 'anh' || h === 'hinh_anh') {
                         if (cellVal && cellVal.startsWith('http')) {
                             cellVal = `<img src="${cellVal}" style="max-height: 50px; max-width: 50px; border-radius: 4px; object-fit: cover;">`;
                         }
@@ -1210,6 +1322,16 @@ function renderTable() {
                             </div>`;
                             return `<td ${tdStyle}>${cellVal}</td>`;
                         }
+                    }
+                } else if (currentTab === 'DSNV') {
+                    if (h === 'hashtag') {
+                        cellVal = `<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+                            <div class="line-clamp-3" style="flex-grow:1;">${cellVal}</div>
+                            <button type="button" onclick="event.stopPropagation(); window.quickEditCell(${sheetRow}, '${h}')" style="background:transparent; border:none; cursor:pointer; color:var(--primary); padding:4px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:4px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'" title="Sửa nhanh">
+                                <i data-lucide="edit-3" style="width:14px; height:14px;"></i>
+                            </button>
+                        </div>`;
+                        return `<td ${tdStyle}>${cellVal}</td>`;
                     }
                 }
 
@@ -1271,7 +1393,70 @@ function changePage(delta) {
     currentPage += delta;
     renderTable();
 }
+let globalSearchTimeout = null;
+function doGlobalSearch() {
+    clearTimeout(globalSearchTimeout);
+    globalSearchTimeout = setTimeout(() => {
+        const query = document.getElementById('globalSearchInput').value.toLowerCase().trim();
+        const resultsContainer = document.getElementById('globalSearchResults');
+        
+        if (!query) {
+            resultsContainer.style.display = 'none';
+            return;
+        }
 
+        let results = [];
+        const tabsToSearch = ['GHI_CHU', 'CHI_TIEU', 'CONG_VIEC', 'HOC_HOI', 'DSNV'];
+        
+        tabsToSearch.forEach(tab => {
+            if (window.cachedData[tab]) {
+                const config = CONFIG.tabs[tab];
+                window.cachedData[tab].forEach(row => {
+                    // Chuyển toàn bộ dữ liệu dòng thành text để tìm
+                    const rowText = row.map(v => String(v || '').toLowerCase()).join(' ');
+                    if (rowText.includes(query)) {
+                        // Tìm thấy -> tạo object kết quả
+                        let title = 'Không tên';
+                        if (tab === 'GHI_CHU') title = row[config.headers.indexOf('tieu_de')];
+                        else if (tab === 'CHI_TIEU') title = `Chi tiêu: ${row[config.headers.indexOf('so_tien')]} - ${row[config.headers.indexOf('loai_giao_dich')]}`;
+                        else if (tab === 'CONG_VIEC') title = row[config.headers.indexOf('tieu_de')];
+                        else if (tab === 'HOC_HOI') title = row[config.headers.indexOf('tieu_de')];
+                        else if (tab === 'DSNV') title = row[config.headers.indexOf('ho_ten')];
+
+                        results.push({
+                            tab: tab,
+                            title: title || 'Dữ liệu',
+                            row: row
+                        });
+                    }
+                });
+            }
+        });
+
+        if (results.length === 0) {
+            resultsContainer.innerHTML = '<div style="padding:10px; color:#64748b; text-align:center;">Không tìm thấy kết quả.</div>';
+        } else {
+            // Giới hạn hiển thị 20 kết quả đầu
+            resultsContainer.innerHTML = results.slice(0, 20).map(r => `
+                <div style="padding:10px; border-bottom:1px solid #f1f5f9; cursor:pointer; hover:background:#f8fafc;" 
+                     onclick="openRecordFormFromDash('${r.tab}', window.cachedData['${r.tab}'].find(x => x._sheetRow === ${r.row._sheetRow}), ${r.row._sheetRow}); document.getElementById('globalSearchResults').style.display='none';">
+                    <div style="font-weight:600; font-size:0.9rem; color:#0f172a;">${r.title}</div>
+                    <div style="font-size:0.75rem; color:#64748b; margin-top:3px; background:#e2e8f0; display:inline-block; padding:2px 6px; border-radius:4px;">Tab: ${r.tab}</div>
+                </div>
+            `).join('');
+        }
+        resultsContainer.style.display = 'block';
+    }, 300);
+}
+
+// Ẩn kết quả khi click ra ngoài
+document.addEventListener('click', (e) => {
+    const container = document.getElementById('globalSearchResults');
+    const input = document.getElementById('globalSearchInput');
+    if (container && input && !container.contains(e.target) && e.target !== input) {
+        container.style.display = 'none';
+    }
+});
 function filterTable() {
     const searchVal = (document.getElementById('searchInput')?.value || '').toLowerCase();
     const dateFromVal = document.getElementById('dateFromFilter')?.value;
@@ -1333,14 +1518,15 @@ function filterTable() {
         }
 
         let phanLoaiMatch = true;
-        if (activePhanLoaiFilter && currentTab === 'GHI_CHU') {
+        if (activePhanLoaiFilter && activePhanLoaiFilter.length > 0 && currentTab === 'GHI_CHU') {
             const colIndex = CONFIG.tabs[currentTab].headers.indexOf('phan_loai');
-            phanLoaiMatch = row[colIndex] === activePhanLoaiFilter;
-        } else if (activePhanLoaiFilter && currentTab === 'HOC_HOI') {
-            const colIndex = CONFIG.tabs[currentTab].headers.indexOf('tag');
+            phanLoaiMatch = activePhanLoaiFilter.includes(row[colIndex]);
+        } else if (activePhanLoaiFilter && activePhanLoaiFilter.length > 0 && (currentTab === 'HOC_HOI' || currentTab === 'DSNV')) {
+            const colName = currentTab === 'HOC_HOI' ? 'tag' : 'hashtag';
+            const colIndex = CONFIG.tabs[currentTab].headers.indexOf(colName);
             if (colIndex !== -1) {
                 const tags = String(row[colIndex] || '').split(',').map(s => s.trim());
-                phanLoaiMatch = tags.includes(activePhanLoaiFilter);
+                phanLoaiMatch = activePhanLoaiFilter.some(filterTag => tags.includes(filterTag));
             }
         }
 
@@ -1393,10 +1579,10 @@ function renderTabFilters() {
         const colIndex = tabConfig.headers.indexOf('phan_loai');
         const existingTags = new Set(allData.map(row => row[colIndex]).filter(v => v && typeof v === 'string' && v.trim() !== ''));
 
-        let html = `<button class="tag-btn ${!activePhanLoaiFilter ? 'active' : ''}" onclick="setPhanLoaiFilter(null)" style="border-radius: 20px; font-weight:bold; ${!activePhanLoaiFilter ? 'background-color: var(--primary); color: white;' : ''}">Tất cả</button>`;
+        let html = `<button class="tag-btn ${activePhanLoaiFilter.length === 0 ? 'active' : ''}" onclick="setPhanLoaiFilter('')" style="border-radius: 20px; font-weight:bold; ${activePhanLoaiFilter.length === 0 ? 'background-color: var(--primary); color: white;' : ''}">Tất cả</button>`;
 
         Array.from(existingTags).forEach(t => {
-            const isActive = activePhanLoaiFilter === t;
+            const isActive = activePhanLoaiFilter.includes(t);
             const style = isActive ? 'background-color: var(--primary); color: white;' : '';
             html += `<button class="tag-btn ${isActive ? 'active' : ''}" onclick="setPhanLoaiFilter('${t.replace(/'/g, "\\'")}')" style="border-radius: 20px; font-weight:bold; ${style}">${t}</button>`;
         });
@@ -1447,20 +1633,21 @@ function renderTabFilters() {
             html += btnHtml;
         });
         container.innerHTML = `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">${html}</div>`;
-    } else if (currentTab === 'HOC_HOI') {
+    } else if (currentTab === 'HOC_HOI' || currentTab === 'DSNV') {
         const tabConfig = CONFIG.tabs[currentTab];
-        const colIndex = tabConfig.headers.indexOf('tag');
+        const colName = currentTab === 'HOC_HOI' ? 'tag' : 'hashtag';
+        const colIndex = tabConfig.headers.indexOf(colName);
         if (colIndex !== -1) {
             const allTags = allData.map(row => row[colIndex]).filter(v => v && typeof v === 'string' && v.trim() !== '').flatMap(v => v.split(',').map(s => s.trim()));
             const existingVals = new Set(allTags);
             const activeVal = activePhanLoaiFilter || '';
 
             let btnHtml = `<div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">`;
-            btnHtml += `<span style="font-size:12px; color:#64748b; font-weight:600;">TAG:</span>`;
-            btnHtml += `<button class="tag-btn ${!activeVal ? 'active' : ''}" onclick="setPhanLoaiFilter('')" style="padding:4px 8px; font-size:12px; border-radius:12px; ${!activeVal ? 'background-color: var(--primary); color: white;' : ''}">Tất cả</button>`;
+            btnHtml += `<span style="font-size:12px; color:#64748b; font-weight:600;">${colName.toUpperCase()}:</span>`;
+            btnHtml += `<button class="tag-btn ${activePhanLoaiFilter.length === 0 ? 'active' : ''}" onclick="setPhanLoaiFilter('')" style="padding:4px 8px; font-size:12px; border-radius:12px; ${activePhanLoaiFilter.length === 0 ? 'background-color: var(--primary); color: white;' : ''}">Tất cả</button>`;
 
             Array.from(existingVals).forEach(v => {
-                const isActive = activeVal === v;
+                const isActive = activePhanLoaiFilter.includes(v);
                 const style = isActive ? 'background-color: var(--primary); color: white;' : '';
                 btnHtml += `<button class="tag-btn ${isActive ? 'active' : ''}" onclick="setPhanLoaiFilter('${v.replace(/'/g, "\\'")}')" style="padding:4px 8px; font-size:12px; border-radius:12px; ${style}">${v}</button>`;
             });
@@ -1487,7 +1674,16 @@ function setExpenseFilter(col, val) {
 }
 
 function setPhanLoaiFilter(tag) {
-    activePhanLoaiFilter = tag;
+    if (!tag) {
+        activePhanLoaiFilter = [];
+    } else {
+        const index = activePhanLoaiFilter.indexOf(tag);
+        if (index > -1) {
+            activePhanLoaiFilter.splice(index, 1);
+        } else {
+            activePhanLoaiFilter.push(tag);
+        }
+    }
     renderTabFilters();
     filterTable();
 }
@@ -1604,17 +1800,22 @@ function handleRowCheckbox() {
 function updateBatchButtons() {
     const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
     const editBtn = document.getElementById('batchEditPhanLoaiBtn');
+    const editGioiTinhBtn = document.getElementById('batchEditGioiTinhBtn');
+    const editHashtagBtn = document.getElementById('batchEditHashtagBtn');
     const delBtn = document.getElementById('batchDeleteBtn');
-    if (editBtn && delBtn) {
-        if (checkedCount > 0) {
-            editBtn.style.display = currentTab === 'GHI_CHU' ? 'inline-block' : 'none';
-            delBtn.style.display = 'inline-block';
-        } else {
-            editBtn.style.display = 'none';
-            delBtn.style.display = 'none';
-            const selectAll = document.getElementById('selectAll');
-            if (selectAll) selectAll.checked = false;
-        }
+    
+    if (checkedCount > 0) {
+        if (editBtn) editBtn.style.display = currentTab === 'GHI_CHU' ? 'inline-block' : 'none';
+        if (editGioiTinhBtn) editGioiTinhBtn.style.display = currentTab === 'DSNV' ? 'inline-block' : 'none';
+        if (editHashtagBtn) editHashtagBtn.style.display = currentTab === 'DSNV' ? 'inline-block' : 'none';
+        if (delBtn) delBtn.style.display = 'inline-block';
+    } else {
+        if (editBtn) editBtn.style.display = 'none';
+        if (editGioiTinhBtn) editGioiTinhBtn.style.display = 'none';
+        if (editHashtagBtn) editHashtagBtn.style.display = 'none';
+        if (delBtn) delBtn.style.display = 'none';
+        const selectAll = document.getElementById('selectAll');
+        if (selectAll) selectAll.checked = false;
     }
 }
 
@@ -1679,36 +1880,151 @@ async function batchDelete() {
     }
 }
 
-function openBatchEditPhanLoai() {
+window.batchEditTargetCol = null;
+
+function openBatchEdit(colName, modalTitle, modalLabel, defaultTags = [], initialValue = '') {
     const checkboxes = document.querySelectorAll('.row-checkbox:checked');
     if (checkboxes.length === 0) return;
 
+    window.batchEditTargetCol = colName;
     const tabConfig = CONFIG.tabs[currentTab];
-    const colIndex = tabConfig.headers.indexOf('phan_loai');
-    const existingTags = new Set(allData.map(row => row[colIndex]).filter(v => v && typeof v === 'string' && v.trim() !== ''));
-    ['Ghi chú', 'Sự kiện', 'Ảnh'].forEach(t => existingTags.add(t)); // Add default tags
+    const colIndex = tabConfig.headers.indexOf(colName);
 
-    const tagsHtml = Array.from(existingTags).map(t =>
-        `<button type="button" class="tag-btn" onclick="document.getElementById('batchEditPhanLoaiInput').value='${t.replace(/'/g, "&#39;")}'">${t}</button>`
-    ).join('');
+    if (!initialValue && checkboxes.length > 0) {
+        // Lấy giá trị của dòng đầu tiên được chọn làm giá trị mặc định để sửa
+        const firstCb = checkboxes[0];
+        const sheetRow = firstCb.getAttribute('data-index');
+        const rowData = allData.find(r => String(r._sheetRow) === String(sheetRow));
+        if (rowData && colIndex !== -1) {
+            initialValue = rowData[colIndex] || '';
+        }
+    }
+    
+    let existingTags = new Set();
+    if (colIndex !== -1) {
+        if (colName === 'hashtag' || colName === 'tag') {
+            const allTags = allData.map(row => row[colIndex]).filter(v => v && typeof v === 'string' && v.trim() !== '').flatMap(v => v.split(',').map(s => s.trim()));
+            existingTags = new Set(allTags);
+        } else {
+            existingTags = new Set(allData.map(row => row[colIndex]).filter(v => v && typeof v === 'string' && v.trim() !== ''));
+        }
+    }
+    defaultTags.forEach(t => existingTags.add(t)); // Add default tags
 
+    const tagsHtml = Array.from(existingTags).map(t => {
+        if (colName === 'hashtag' || colName === 'tag') {
+            return `<button type="button" class="tag-btn" data-tag="${t.replace(/"/g, '&quot;')}" onclick="window.toggleTag('batchEditPhanLoaiInput', '${t.replace(/'/g, "\\'")}')">${t}</button>`;
+        } else {
+            return `<button type="button" class="tag-btn" data-tag="${t.replace(/"/g, '&quot;')}" onclick="document.getElementById('batchEditPhanLoaiInput').value='${t.replace(/'/g, "\\'")}'; if(window.updateTagButtonsUI) window.updateTagButtonsUI('batchEditPhanLoaiInput');">${t}</button>`;
+        }
+    }).join('');
+
+    document.getElementById('batchEditModalTitle').innerText = modalTitle || `Sửa ${colName}`;
+    document.getElementById('batchEditModalLabel').innerText = modalLabel || `Giá trị mới`;
     document.getElementById('batchEditTagButtons').innerHTML = tagsHtml;
-    document.getElementById('batchEditPhanLoaiInput').value = '';
+    document.getElementById('batchEditPhanLoaiInput').value = initialValue;
 
     document.getElementById('batchEditModal').style.display = 'flex';
+    
+    // Khởi tạo màu cho các nút tag
+    setTimeout(() => { if(window.updateTagButtonsUI) window.updateTagButtonsUI('batchEditPhanLoaiInput'); }, 10);
+}
+
+window.toggleTag = function(inputId, tagStr) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    let currentVals = input.value.split(',').map(s => s.trim()).filter(s => s);
+    if (currentVals.includes(tagStr)) {
+        currentVals = currentVals.filter(v => v !== tagStr);
+    } else {
+        currentVals.push(tagStr);
+    }
+    input.value = currentVals.join(', ');
+    if (window.updateTagButtonsUI) window.updateTagButtonsUI(inputId);
+}
+
+window.updateTagButtonsUI = function(inputId) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    const currentVals = input.value.split(',').map(s => s.trim()).filter(s => s);
+    
+    let container = null;
+    if (inputId === 'batchEditPhanLoaiInput') {
+        container = document.getElementById('batchEditTagButtons');
+    } else {
+        container = input.nextElementSibling;
+    }
+    
+    if (container && container.classList.contains('tag-buttons')) {
+        container.querySelectorAll('.tag-btn').forEach(btn => {
+            const t = btn.getAttribute('data-tag');
+            if (t && currentVals.includes(t)) {
+                btn.style.background = 'var(--primary)';
+                btn.style.color = 'white';
+                btn.style.border = '1px solid var(--primary)';
+            } else {
+                btn.style.background = '#f1f5f9';
+                btn.style.color = '#334155';
+                btn.style.border = '1px solid #e2e8f0';
+            }
+        });
+    }
+}
+
+window.updateBatchEditTagButtons = function() {
+    window.updateTagButtonsUI('batchEditPhanLoaiInput');
+}
+
+function openBatchEditPhanLoai() {
+    openBatchEdit('phan_loai', 'Sửa phân loại hàng loạt', 'PHÂN LOẠI MỚI', ['Ghi chú', 'Sự kiện', 'Ảnh']);
+}
+
+function openBatchEditGioiTinh() {
+    openBatchEdit('gioi_tinh', 'Sửa giới tính hàng loạt', 'GIỚI TÍNH MỚI', ['Nam', 'Nữ']);
+}
+
+function openBatchEditHashtag() {
+    openBatchEdit('hashtag', 'Sửa hashtag hàng loạt', 'HASHTAG MỚI', []);
 }
 
 function closeBatchEditModal() {
     document.getElementById('batchEditModal').style.display = 'none';
 }
 
-async function executeBatchEditPhanLoai() {
-    const checkboxes = document.querySelectorAll('.row-checkbox:checked');
-    if (checkboxes.length === 0) return;
+window.quickEditCell = function(sheetRow, colName) {
+    // Bỏ chọn tất cả checkbox
+    document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+    // Chọn đúng checkbox của dòng cần sửa
+    const targetCb = document.querySelector(`.row-checkbox[data-index="${sheetRow}"]`);
+    if (targetCb) {
+        targetCb.checked = true;
+        // find current val
+        const tabConfig = CONFIG.tabs[currentTab];
+        const colIndex = tabConfig.headers.indexOf(colName);
+        let currentVal = '';
+        if (colIndex !== -1) {
+            const rowData = allData.find(r => String(r._sheetRow) === String(sheetRow));
+            if (rowData) currentVal = rowData[colIndex] || '';
+        }
+        
+        let title = 'Sửa nhanh';
+        let label = 'Giá trị mới';
+        if (colName === 'hashtag') { title = 'Sửa Hashtag'; label = 'HASHTAG'; }
+        if (colName === 'gioi_tinh') { title = 'Sửa Giới tính'; label = 'GIỚI TÍNH'; }
+        
+        openBatchEdit(colName, title, label, [], currentVal);
+    } else {
+        alert('Không tìm thấy dòng để sửa');
+    }
+}
 
-    const newPhanLoai = document.getElementById('batchEditPhanLoaiInput').value;
-    if (newPhanLoai === '') {
-        if (!confirm("Bạn không nhập phân loại nào, mục này sẽ bị để trống. Tiếp tục?")) return;
+async function executeBatchEditGeneric() {
+    const checkboxes = document.querySelectorAll('.row-checkbox:checked');
+    if (checkboxes.length === 0 || !window.batchEditTargetCol) return;
+
+    const newValue = document.getElementById('batchEditPhanLoaiInput').value;
+    if (newValue === '') {
+        if (!confirm("Bạn không nhập giá trị nào, mục này sẽ bị để trống. Tiếp tục?")) return;
     }
 
     closeBatchEditModal();
@@ -1716,16 +2032,21 @@ async function executeBatchEditPhanLoai() {
     try {
         const token = await getAccessToken();
         const tabConfig = CONFIG.tabs[currentTab];
-        const phanLoaiColIndex = tabConfig.headers.indexOf('phan_loai');
-        if (phanLoaiColIndex === -1) throw new Error("Không tìm thấy cột phân loại.");
+        const colIndex = tabConfig.headers.indexOf(window.batchEditTargetCol);
+        if (colIndex === -1) throw new Error("Không tìm thấy cột dữ liệu.");
 
-        const colLetter = String.fromCharCode(65 + phanLoaiColIndex);
+        let colLetter;
+        if (colIndex < 26) {
+            colLetter = String.fromCharCode(65 + colIndex);
+        } else {
+            colLetter = String.fromCharCode(64 + Math.floor(colIndex / 26)) + String.fromCharCode(65 + (colIndex % 26));
+        }
 
         const dataToUpdate = Array.from(checkboxes).map(cb => {
             const rowIndex = cb.getAttribute('data-index');
             return {
                 range: `${currentTab}!${colLetter}${rowIndex}`,
-                values: [[newPhanLoai]]
+                values: [[newValue]]
             };
         });
 
@@ -1746,7 +2067,7 @@ async function executeBatchEditPhanLoai() {
             throw new Error(errData.error?.message || "Lỗi khi cập nhật");
         }
 
-        await fetchData();
+        await fetchData(true);
     } catch (e) {
         console.error(e);
         alert("Lỗi: " + e.message);
@@ -2077,5 +2398,260 @@ async function dropTask(event, newStatus) {
         await fetchData(true);
     } finally {
         document.getElementById('loading').style.display = 'none';
+    }
+}
+
+// ==========================================
+// 10. THONG KE / ANALYTICS
+// ==========================================
+let expenseChartInstance = null;
+let taskChartInstance = null;
+
+function renderAnalytics() {
+    const container = document.getElementById('analyticsDashboard');
+    if (!container) return;
+    
+    // Đảm bảo dữ liệu đã được tải
+    if (!window.cachedData['CHI_TIEU'] || !window.cachedData['CONG_VIEC']) {
+        container.innerHTML = '<div style="padding:20px; text-align:center;">Đang tải dữ liệu hoặc không có dữ liệu...</div>';
+        return;
+    }
+    
+    const chiTieuData = window.cachedData['CHI_TIEU'];
+    const chiTieuConfig = CONFIG.tabs['CHI_TIEU'];
+    const congViecData = window.cachedData['CONG_VIEC'];
+    const congViecConfig = CONFIG.tabs['CONG_VIEC'];
+    
+    // 1. Thống kê Chi tiêu tháng hiện tại
+    const currentMonth = new Date().getMonth() + 1;
+    const currentYear = new Date().getFullYear();
+    
+    const expenseByCategory = {};
+    chiTieuData.forEach(row => {
+        const dateVal = row[chiTieuConfig.headers.indexOf('ngay')];
+        const category = row[chiTieuConfig.headers.indexOf('loai_giao_dich')] || 'Khác';
+        const amountStr = row[chiTieuConfig.headers.indexOf('so_tien')];
+        const type = row[chiTieuConfig.headers.indexOf('phan_loai')]; // Thu / Chi
+        
+        if (type !== 'Chi') return;
+        
+        const d = parseSheetDate(dateVal);
+        if (d) {
+            const dateObj = new Date(d);
+            if (dateObj.getMonth() + 1 === currentMonth && dateObj.getFullYear() === currentYear) {
+                const amount = parseFloat(String(amountStr).replace(/,/g, '')) || 0;
+                if (!expenseByCategory[category]) expenseByCategory[category] = 0;
+                expenseByCategory[category] += amount;
+            }
+        }
+    });
+    
+    // 2. Thống kê năng suất công việc (Tuần)
+    // Tính 4 tuần gần nhất
+    const weeks = [];
+    const now = new Date();
+    for (let i = 3; i >= 0; i--) {
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - (i * 7) - now.getDay() + 1); // Monday
+        const end = new Date(start);
+        end.setDate(end.getDate() + 6); // Sunday
+        weeks.push({
+            label: `${start.getDate()}/${start.getMonth()+1} - ${end.getDate()}/${end.getMonth()+1}`,
+            start: start.getTime(),
+            end: end.getTime(),
+            count: 0
+        });
+    }
+    
+    congViecData.forEach(row => {
+        const status = row[congViecConfig.headers.indexOf('trang_thai')];
+        const dateVal = row[congViecConfig.headers.indexOf('ngay')]; // Ngày hoàn thành hoặc ngày làm
+        if (status !== 'Hoàn thành') return;
+        
+        const d = parseSheetDate(dateVal);
+        if (d) {
+            weeks.forEach(w => {
+                if (d >= w.start && d <= w.end) {
+                    w.count++;
+                }
+            });
+        }
+    });
+
+    container.innerHTML = `
+        <div style="width:100%; display:flex; flex-wrap:wrap; gap:20px;">
+            <div style="flex:1; min-width:300px; background:#fff; padding:20px; border-radius:12px; box-shadow:var(--shadow);">
+                <h3 style="margin-bottom:15px; font-size:1.1rem; color:var(--text-dark);">Chi tiêu tháng ${currentMonth}/${currentYear}</h3>
+                ${Object.keys(expenseByCategory).length === 0 ? '<p>Không có dữ liệu chi tiêu.</p>' : '<div style="position:relative; height:300px;"><canvas id="expenseChart"></canvas></div>'}
+            </div>
+            <div style="flex:1; min-width:300px; background:#fff; padding:20px; border-radius:12px; box-shadow:var(--shadow);">
+                <h3 style="margin-bottom:15px; font-size:1.1rem; color:var(--text-dark);">Năng suất (4 tuần qua)</h3>
+                <div style="position:relative; height:300px;"><canvas id="taskChart"></canvas></div>
+            </div>
+        </div>
+    `;
+
+    // Vẽ biểu đồ
+    setTimeout(() => {
+        if (Object.keys(expenseByCategory).length > 0) {
+            const ctxExpense = document.getElementById('expenseChart');
+            if (ctxExpense) {
+                if (expenseChartInstance) expenseChartInstance.destroy();
+                expenseChartInstance = new Chart(ctxExpense, {
+                    type: 'doughnut',
+                    data: {
+                        labels: Object.keys(expenseByCategory),
+                        datasets: [{
+                            data: Object.values(expenseByCategory),
+                            backgroundColor: ['#ef4444', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f43f5e']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom' }
+                        }
+                    }
+                });
+            }
+        }
+
+        const ctxTask = document.getElementById('taskChart');
+        if (ctxTask) {
+            if (taskChartInstance) taskChartInstance.destroy();
+            taskChartInstance = new Chart(ctxTask, {
+                type: 'bar',
+                data: {
+                    labels: weeks.map(w => w.label),
+                    datasets: [{
+                        label: 'Hoàn thành',
+                        data: weeks.map(w => w.count),
+                        backgroundColor: '#5b5ef4',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+                    }
+                }
+            });
+        }
+    }, 100);
+}
+
+// ==========================================
+// 11. THONG BAO & NHAC VIEC (NOTIFICATIONS)
+// ==========================================
+function checkReminders() {
+    if (!window.cachedData || !window.cachedData['CONG_VIEC'] || !window.cachedData['DSNV']) return;
+    if ("Notification" in window && Notification.permission === "granted") {
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${today.getMonth()+1}-${today.getDate()}`;
+        const lastNotified = localStorage.getItem('lastNotifiedDate');
+        
+        // Chỉ thông báo 1 lần mỗi ngày
+        if (lastNotified !== todayStr) {
+            let tasksDueToday = 0;
+            let birthdaysToday = 0;
+            
+            // Check deadline
+            const congViecData = window.cachedData['CONG_VIEC'];
+            const cvConfig = CONFIG.tabs['CONG_VIEC'];
+            congViecData.forEach(row => {
+                const status = row[cvConfig.headers.indexOf('trang_thai')];
+                const dateVal = row[cvConfig.headers.indexOf('ngay')];
+                if (status !== 'Hoàn thành' && dateVal) {
+                    const d = parseSheetDate(dateVal);
+                    if (d) {
+                        const dateObj = new Date(d);
+                        if (dateObj.getDate() === today.getDate() && 
+                            dateObj.getMonth() === today.getMonth() && 
+                            dateObj.getFullYear() === today.getFullYear()) {
+                            tasksDueToday++;
+                        }
+                    }
+                }
+            });
+
+            // Check birthday
+            const nvData = window.cachedData['DSNV'];
+            const nvConfig = CONFIG.tabs['DSNV'];
+            const birthdayNames = [];
+            nvData.forEach(row => {
+                const dobVal = row[nvConfig.headers.indexOf('ngay_sinh')];
+                const name = row[nvConfig.headers.indexOf('ho_ten')];
+                if (dobVal) {
+                    const d = parseSheetDate(dobVal);
+                    if (d) {
+                        const dateObj = new Date(d);
+                        if (dateObj.getDate() === today.getDate() && dateObj.getMonth() === today.getMonth()) {
+                            birthdaysToday++;
+                            birthdayNames.push(name);
+                        }
+                    }
+                }
+            });
+
+            if (tasksDueToday > 0 || birthdaysToday > 0) {
+                let bodyText = '';
+                if (tasksDueToday > 0) bodyText += `Hôm nay có ${tasksDueToday} deadline cần làm.\n`;
+                if (birthdaysToday > 0) bodyText += `Hôm nay là sinh nhật của ${birthdayNames.join(', ')}.\n`;
+                
+                new Notification("InfoSys - Nhắc việc hôm nay", {
+                    body: bodyText.trim(),
+                    icon: "favicon.png"
+                });
+                localStorage.setItem('lastNotifiedDate', todayStr);
+            }
+        }
+    }
+}
+
+// ==========================================
+// 12. UPLOAD TO IMGBB
+// ==========================================
+async function uploadToImgbb(fileInput, targetInputId) {
+    if (!fileInput.files || fileInput.files.length === 0) return;
+    
+    const file = fileInput.files[0];
+    const statusSpan = document.getElementById(fileInput.id.replace('file_', 'upload_status_'));
+    const targetInput = document.getElementById(targetInputId);
+    
+    if (statusSpan) statusSpan.innerText = "Đang tải lên...";
+    
+    // API key mặc định cho ImgBB (có thể đổi bằng key riêng của người dùng)
+    const IMGBB_API_KEY = '8c47eef09df44c35c6e864ee5ce9a8e0';
+    
+    const formData = new FormData();
+    formData.append('image', file);
+    
+    try {
+        const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+            if (targetInput) targetInput.value = data.data.url;
+            if (statusSpan) {
+                statusSpan.innerText = "Thành công!";
+                statusSpan.style.color = "#10b981";
+            }
+        } else {
+            throw new Error(data.error.message || 'Lỗi không xác định');
+        }
+    } catch (err) {
+        console.error(err);
+        if (statusSpan) {
+            statusSpan.innerText = "Lỗi tải ảnh";
+            statusSpan.style.color = "#ef4444";
+        }
+        alert("Upload ảnh thất bại: " + err.message);
+    } finally {
+        fileInput.value = ""; // reset input
     }
 }
