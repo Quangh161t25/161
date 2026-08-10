@@ -6,19 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>InfoSys — Hệ thống Quản lý</title>
 
-    <!-- External dependencies -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.5.25/jsrsasign-all-min.js"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- External dependencies (Localized for Chrome Extension) -->
+    <script src="lib/jsrsasign-all-min.js"></script>
+    <script src="lib/lucide.js"></script>
+    <link rel="stylesheet" href="lib/leaflet.css" />
+    <script src="lib/leaflet.js"></script>
+    <script src="lib/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="lib/chart.js"></script>
 
     <link rel="stylesheet" href="styles.css?v=20260627_22">
 
     <!-- PWA -->
-    <link rel="manifest" href="manifest.json">
+    <link rel="manifest" href="manifest.web.json">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link rel="icon" type="image/png" href="favicon.png">
     <meta name="theme-color" content="#5b5ef4">
@@ -54,45 +54,49 @@
                     <div class="logo">INFO<br>SYS</div>
                     <h1 id="pageTitle">InfoSys</h1>
                 </div>
-                <button class="sidebar-toggle" type="button" onclick="toggleSidebar()" title="Thu gọn menu">
+                <button class="sidebar-toggle" type="button" id="sidebarToggleBtn" title="Thu gọn menu">
                     <i data-lucide="panel-left-close" style="width:16px;height:16px;"></i>
                 </button>
             </div>
 
             <nav class="tabs">
-                <div class="tab" id="tab_TAT_CA" data-tab="TAT_CA" onclick="switchTab('TAT_CA')">
+                <div class="tab" id="tab_TAT_CA" data-tab="TAT_CA" >
                     <i data-lucide="layers" style="width:18px;height:18px;"></i>
                     <span>Tất cả</span>
                 </div>
-                <div class="tab" id="tab_LICH" data-tab="LICH" onclick="switchTab('LICH')">
+                <div class="tab" id="tab_LICH" data-tab="LICH" >
                     <i data-lucide="calendar" style="width:18px;height:18px;"></i>
                     <span>Lịch</span>
                 </div>
-                <div class="tab active" id="tab_GHI_CHU" data-tab="GHI_CHU" onclick="switchTab('GHI_CHU')">
+                <div class="tab active" id="tab_GHI_CHU" data-tab="GHI_CHU" >
                     <i data-lucide="book-open" style="width:18px;height:18px;"></i>
                     <span>Ghi chú</span>
                 </div>
-                <div class="tab" id="tab_CHI_TIEU" data-tab="CHI_TIEU" onclick="switchTab('CHI_TIEU')">
+                <div class="tab" id="tab_CHI_TIEU" data-tab="CHI_TIEU" >
                     <i data-lucide="wallet" style="width:18px;height:18px;"></i>
                     <span>Chi tiêu</span>
                 </div>
-                <div class="tab" id="tab_CONG_VIEC" data-tab="CONG_VIEC" onclick="switchTab('CONG_VIEC')">
+                <div class="tab" id="tab_CONG_VIEC" data-tab="CONG_VIEC" >
                     <i data-lucide="check-square" style="width:18px;height:18px;"></i>
                     <span>Công việc</span>
                 </div>
-                <div class="tab" id="tab_HOC_HOI" data-tab="HOC_HOI" onclick="switchTab('HOC_HOI')">
+                <div class="tab" id="tab_HOC_HOI" data-tab="HOC_HOI" >
                     <i data-lucide="lightbulb" style="width:18px;height:18px;"></i>
                     <span>Học hỏi</span>
                 </div>
-                <div class="tab" id="tab_DSNV" data-tab="DSNV" onclick="switchTab('DSNV')">
+                <div class="tab" id="tab_MK" data-tab="MK" >
+                    <i data-lucide="key" style="width:18px;height:18px;"></i>
+                    <span>Mật khẩu</span>
+                </div>
+                <div class="tab" id="tab_DSNV" data-tab="DSNV" >
                     <i data-lucide="users" style="width:18px;height:18px;"></i>
                     <span>Con người</span>
                 </div>
-                <div class="tab" id="tab_THONG_KE" data-tab="THONG_KE" onclick="switchTab('THONG_KE')">
+                <div class="tab" id="tab_THONG_KE" data-tab="THONG_KE" >
                     <i data-lucide="pie-chart" style="width:18px;height:18px;"></i>
                     <span>Thống kê</span>
                 </div>
-                <div class="tab" id="tab_THEM" data-tab="THEM" onclick="switchTab('THEM')">
+                <div class="tab" id="tab_THEM" data-tab="THEM" >
                     <i data-lucide="plus-circle" style="width:18px;height:18px;"></i>
                     <span>Thêm nhanh</span>
                 </div>
@@ -111,7 +115,7 @@
                         <i data-lucide="globe" class="search-icon" style="width:16px;height:16px;color:#3b82f6;"></i>
                         <input type="text" id="globalSearchInput" class="search-input"
                             placeholder="Tìm toàn cục..."
-                            oninput="doGlobalSearch()" style="border-color:#bfdbfe; background:#eff6ff;">
+                             style="border-color:#bfdbfe; background:#eff6ff;">
                         <div id="globalSearchResults" style="display:none; position:absolute; top:100%; left:0; right:0; background:#fff; border:1px solid #e2e8f0; border-radius:8px; margin-top:5px; max-height:400px; overflow-y:auto; z-index:100; box-shadow:0 10px 15px -3px rgba(0,0,0,0.1);">
                         </div>
                     </div>
@@ -121,64 +125,64 @@
                         <i data-lucide="search" class="search-icon" style="width:16px;height:16px;"></i>
                         <input type="text" id="searchInput" class="search-input"
                             placeholder="Tìm kiếm nhanh..."
-                            oninput="filterTable()">
+                            >
                     </div>
 
                     <!-- Date filter -->
                     <div id="dateFilterContainer" style="display:flex;flex-direction:column;gap:5px;">
                         <div class="date-filter-row">
                             Từ:
-                            <input type="date" id="dateFromFilter" class="filter-input" onchange="filterTable()">
+                            <input type="date" id="dateFromFilter" class="filter-input" >
                             Đến:
-                            <input type="date" id="dateToFilter" class="filter-input" onchange="filterTable()">
+                            <input type="date" id="dateToFilter" class="filter-input" >
                         </div>
                         <div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
-                            <button type="button" class="tag-btn" onclick="quickFilterDate('today')">Hôm nay</button>
-                            <button type="button" class="tag-btn" onclick="quickFilterDate('yesterday')">Hôm qua</button>
-                            <button type="button" class="tag-btn" onclick="quickFilterDate('this_week')">Tuần này</button>
-                            <button type="button" class="tag-btn" onclick="quickFilterDate('this_month')">Tháng này</button>
-                            <button type="button" class="tag-btn" onclick="quickFilterDate('7_days')">7 ngày</button>
-                            <button type="button" class="tag-btn" onclick="quickFilterDate('all')" style="background:#f4f6fb;">Tất cả</button>
+                            <button type="button" class="tag-btn" data-action="quick-filter-date" data-value="today">Hôm nay</button>
+                            <button type="button" class="tag-btn" data-action="quick-filter-date" data-value="yesterday">Hôm qua</button>
+                            <button type="button" class="tag-btn" data-action="quick-filter-date" data-value="this_week">Tuần này</button>
+                            <button type="button" class="tag-btn" data-action="quick-filter-date" data-value="this_month">Tháng này</button>
+                            <button type="button" class="tag-btn" data-action="quick-filter-date" data-value="7_days">7 ngày</button>
+                            <button type="button" class="tag-btn" data-action="quick-filter-date" data-value="all" style="background:#f4f6fb;">Tất cả</button>
                         </div>
                     </div>
 
                     <!-- Action buttons -->
-                    <button id="reloadBtn" type="button" onclick="reloadCurrentTab()">
+                    <button id="reloadBtn" type="button" >
                         <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                         </svg>
                         Load lại
                     </button>
 
-                    <button id="viewToggleBtn" type="button" onclick="toggleTaskView()"
+                    <button id="viewToggleBtn" type="button" 
                         style="display:none; background:#5b5ef4; color:#fff; border:none; padding:9px 14px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.84rem; display:none; align-items:center; gap:6px;">
                         <i data-lucide="layout-dashboard" style="width:16px;height:16px;"></i> Kanban
                     </button>
 
-                    <button id="batchEditPhanLoaiBtn" type="button" onclick="openBatchEditPhanLoai()"
+                    <button id="batchEditPhanLoaiBtn" type="button" 
                         style="display:none; background:var(--primary); color:#fff; border:none; padding:9px 14px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.84rem;">
                         Sửa phân loại
                     </button>
-                    <button id="batchEditGioiTinhBtn" type="button" onclick="openBatchEditGioiTinh()"
+                    <button id="batchEditGioiTinhBtn" type="button" 
                         style="display:none; background:var(--primary); color:#fff; border:none; padding:9px 14px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.84rem;">
                         Sửa giới tính
                     </button>
-                    <button id="batchEditHashtagBtn" type="button" onclick="openBatchEditHashtag()"
+                    <button id="batchEditHashtagBtn" type="button" 
                         style="display:none; background:var(--primary); color:#fff; border:none; padding:9px 14px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.84rem;">
                         Sửa hashtag
                     </button>
-                    <button id="batchDeleteBtn" type="button" onclick="batchDelete()"
+                    <button id="batchDeleteBtn" type="button" 
                         style="display:none; background:#ef4444; color:#fff; border:none; padding:9px 14px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.84rem;">
                         Xóa chọn
                     </button>
 
-                    <button class="add-btn" type="button" onclick="openRecordForm()">
+                    <button class="add-btn" type="button" id="addRecordBtn">
                         <i data-lucide="plus" style="width:16px;height:16px;"></i>
                         Thêm mới
                     </button>
 
                     <input type="file" id="fileInput" hidden multiple accept=".xlsx,.xls,.csv"
-                        onchange="handleFileUpload(event)">
+                        >
                 </div>
 
                 <!-- Category filter chips (injected by JS) -->
@@ -218,23 +222,23 @@
     </div>
 
     <!-- ===== RECORD FORM MODAL ===== -->
-    <div class="modal-mask" id="productModal" onmousedown="if(event.target===this) closeProductForm()">
-        <form class="modal" onsubmit="saveRecordFromForm(event)">
+    <div class="modal-mask" id="productModal" data-modal="productModal">
+        <form class="modal" id="productForm">
             <div class="modal-header">
                 <h2 id="productModalTitle">Thêm mới</h2>
-                <button type="button" class="icon-btn" onclick="closeProductForm()" title="Đóng">
+                <button type="button" class="icon-btn" data-action="close-product-form" title="Đóng">
                     <i data-lucide="x" style="width:18px;height:18px;"></i>
                 </button>
             </div>
             <input type="hidden" id="editingSheetRow">
             <div id="formFields" class="form-fields"></div>
             <div class="modal-actions">
-                <button type="button" id="deleteRecordBtn" class="delete-record-btn" onclick="deleteCurrentRecord()" style="display:none;">
+                <button type="button" id="deleteRecordBtn" class="delete-record-btn"  style="display:none;">
                     <i data-lucide="trash-2" style="width:15px;height:15px;"></i>
                     Xóa
                 </button>
                 <div style="display:flex;gap:10px;margin-left:auto;">
-                    <button type="button" class="secondary-btn" onclick="closeProductForm()">Hủy</button>
+                    <button type="button" class="secondary-btn" data-action="close-product-form">Hủy</button>
                     <button type="submit" class="primary-btn">
                         <i data-lucide="save" style="width:15px;height:15px;"></i>
                         Lưu
@@ -245,11 +249,11 @@
     </div>
 
     <!-- ===== ORDER DETAIL MODAL ===== -->
-    <div class="modal-mask" id="orderDetailModal" onmousedown="if(event.target===this) closeDonHangDetail()">
+    <div class="modal-mask" id="orderDetailModal" data-modal="orderDetailModal">
         <div class="modal order-detail-modal">
             <div class="modal-header">
                 <h2 id="orderDetailTitle">Chi tiết đơn hàng</h2>
-                <button type="button" class="icon-btn" onclick="closeDonHangDetail()" title="Đóng">
+                <button type="button" class="icon-btn" data-action="close-order-detail" title="Đóng">
                     <i data-lucide="x" style="width:18px;height:18px;"></i>
                 </button>
             </div>
@@ -261,14 +265,14 @@
                 </table>
             </div>
             <div class="order-item-actions">
-                <button type="button" class="secondary-btn" onclick="addDonHangItem()">
+                <button type="button" class="secondary-btn" id="addDonHangItemBtn">
                     <i data-lucide="plus" style="width:15px;height:15px;"></i>
                     Thêm sản phẩm
                 </button>
             </div>
             <div class="modal-actions">
-                <button type="button" class="secondary-btn" onclick="closeDonHangDetail()">Đóng</button>
-                <button type="button" class="primary-btn" onclick="saveDonHangDetail()">
+                <button type="button" class="secondary-btn" data-action="close-order-detail">Đóng</button>
+                <button type="button" class="primary-btn" id="saveDonHangDetailBtn">
                     <i data-lucide="save" style="width:15px;height:15px;"></i>
                     Lưu thay đổi
                 </button>
@@ -278,24 +282,24 @@
 
     <!-- ===== BATCH EDIT MODAL ===== -->
     <div class="modal-mask" id="batchEditModal" style="display:none;"
-        onmousedown="if(event.target===this) closeBatchEditModal()">
+        data-modal="batchEditModal">
         <div class="modal" style="width:460px;height:auto;max-height:80vh;border-radius:14px;margin:auto;">
             <div class="modal-header">
                 <h2 id="batchEditModalTitle">Sửa hàng loạt</h2>
-                <button type="button" class="icon-btn" onclick="closeBatchEditModal()" title="Đóng">
+                <button type="button" class="icon-btn" data-action="close-batch-edit" title="Đóng">
                     <i data-lucide="x" style="width:18px;height:18px;"></i>
                 </button>
             </div>
             <div class="form-fields" style="grid-template-columns:1fr; overflow-y:auto; max-height:50vh;">
                 <label>
                     <span id="batchEditModalLabel" style="font-weight:600; font-size:12px; color:#64748b; margin-bottom:5px; display:block;">GIÁ TRỊ MỚI</span>
-                    <input type="text" id="batchEditPhanLoaiInput" placeholder="Nhập hoặc chọn..." style="margin-bottom:8px;" oninput="if(window.updateBatchEditTagButtons) window.updateBatchEditTagButtons()">
+                    <input type="text" id="batchEditPhanLoaiInput" placeholder="Nhập hoặc chọn..." style="margin-bottom:8px;" >
                     <div id="batchEditTagButtons" class="tag-buttons" style="display:flex; flex-wrap:wrap; gap:8px;"></div>
                 </label>
             </div>
             <div class="modal-actions">
-                <button type="button" class="secondary-btn" onclick="closeBatchEditModal()">Hủy</button>
-                <button type="button" class="primary-btn" onclick="executeBatchEditGeneric()">
+                <button type="button" class="secondary-btn" data-action="close-batch-edit">Hủy</button>
+                <button type="button" class="primary-btn" id="executeBatchEditBtn">
                     <i data-lucide="save" style="width:15px;height:15px;"></i>
                     Lưu
                 </button>
@@ -305,25 +309,25 @@
 
     <!-- ===== ADD SELECTION MODAL ===== -->
     <div class="modal-mask" id="addSelectionModal" style="display:none;"
-        onmousedown="if(event.target===this) this.style.display='none'">
+        data-modal="addSelectionModal">
         <div class="modal" style="width:300px;height:auto;border-radius:14px;margin:auto;">
             <div class="modal-header">
                 <h2>Chọn loại dữ liệu</h2>
-                <button type="button" class="icon-btn" onclick="document.getElementById('addSelectionModal').style.display='none'" title="Đóng">
+                <button type="button" class="icon-btn" data-action="close-add-selection" title="Đóng">
                     <i data-lucide="x" style="width:18px;height:18px;"></i>
                 </button>
             </div>
             <div style="display:flex;flex-direction:column;gap:10px;padding:10px;">
-                <button class="add-btn" style="width:100%;justify-content:center;" onclick="window.openRecordFormFromDash('GHI_CHU'); document.getElementById('addSelectionModal').style.display='none'">
+                <button class="add-btn" style="width:100%;justify-content:center;" data-action="open-record-dash" data-tab-name="GHI_CHU">
                     <i data-lucide="book-open" style="width:16px;height:16px;"></i> Ghi chú
                 </button>
-                <button class="add-btn" style="width:100%;justify-content:center;" onclick="window.openRecordFormFromDash('CHI_TIEU'); document.getElementById('addSelectionModal').style.display='none'">
+                <button class="add-btn" style="width:100%;justify-content:center;" data-action="open-record-dash" data-tab-name="CHI_TIEU">
                     <i data-lucide="wallet" style="width:16px;height:16px;"></i> Chi tiêu
                 </button>
-                <button class="add-btn" style="width:100%;justify-content:center;" onclick="window.openRecordFormFromDash('CONG_VIEC'); document.getElementById('addSelectionModal').style.display='none'">
+                <button class="add-btn" style="width:100%;justify-content:center;" data-action="open-record-dash" data-tab-name="CONG_VIEC">
                     <i data-lucide="check-square" style="width:16px;height:16px;"></i> Công việc
                 </button>
-                <button class="add-btn" style="width:100%;justify-content:center;" onclick="window.openRecordFormFromDash('HOC_HOI'); document.getElementById('addSelectionModal').style.display='none'">
+                <button class="add-btn" style="width:100%;justify-content:center;" data-action="open-record-dash" data-tab-name="HOC_HOI">
                     <i data-lucide="lightbulb" style="width:16px;height:16px;"></i> Học hỏi
                 </button>
             </div>
@@ -332,11 +336,11 @@
 
     <!-- ===== DAY VIEW MODAL ===== -->
     <div class="modal-mask" id="dayViewModal" style="display:none;"
-        onmousedown="if(event.target===this) closeDayView()">
+        data-modal="dayViewModal">
         <div class="modal" style="width:400px;height:auto;max-height:80vh;border-radius:14px;margin:auto;">
             <div class="modal-header">
                 <h2 id="dayViewTitle">Chi tiết ngày</h2>
-                <button type="button" class="icon-btn" onclick="closeDayView()" title="Đóng">
+                <button type="button" class="icon-btn" data-action="close-day-view" title="Đóng">
                     <i data-lucide="x" style="width:18px;height:18px;"></i>
                 </button>
             </div>
@@ -345,93 +349,24 @@
     </div>
 
     <!-- Scripts -->
-    <script src="app.js?v=20260627_22"></script>
+    <script src="core/globals.js"></script>
+    <script src="core/utils.js"></script>
+    <script src="core/api.js"></script>
+    <script src="core/ui.js"></script>
+    <script src="modules/chi_tieu.js"></script>
+    <script src="modules/cong_viec.js"></script>
+    <script src="modules/ghi_chu.js"></script>
+    <script src="modules/mk.js"></script>
+    <script src="modules/tat_ca.js"></script>
+    <script src="modules/thong_ke.js"></script>
+    <script src="modules/nhac_nho.js"></script>
+    <script src="core/init.js"></script>
     <script src="quick_add.js?v=20260627_22"></script>
     <script src="calendar.js?v=20260627_22"></script>
 
     <!-- PWA: Service Worker + Notifications -->
-    <script>
-    // ---- Register Service Worker ----
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-          .then(reg => {
-            console.log('[SW] Registered:', reg.scope);
-            window._swReg = reg;
-          })
-          .catch(err => console.warn('[SW] Failed:', err));
-      });
-    }
-
-    // ---- Notification permission + deadline checker ----
-    async function requestNotificationPermission() {
-      if (!('Notification' in window)) return false;
-      if (Notification.permission === 'granted') return true;
-      if (Notification.permission === 'denied') return false;
-      const result = await Notification.requestPermission();
-      return result === 'granted';
-    }
-
-    // Ask for notification permission after first interaction
-    document.addEventListener('click', async function askOnce() {
-      document.removeEventListener('click', askOnce);
-      const granted = await requestNotificationPermission();
-      if (granted) {
-        console.log('[Notifications] Permission granted');
-        // Start periodic deadline check
-        setInterval(checkDeadlines, 30 * 60 * 1000); // every 30 min
-      }
-    }, { once: true });
-
-    // Check CONG_VIEC deadlines and notify via SW
-    function checkDeadlines() {
-      if (!window.allData || window.currentTab !== 'CONG_VIEC') return;
-      if (Notification.permission !== 'granted') return;
-
-      const today = new Date(); today.setHours(0,0,0,0);
-      const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-
-      const overdue = [];
-      const todayTasks = [];
-
-      (window.allData || []).forEach(row => {
-        const status = row[5];
-        if (status === 'Hoàn thành') return;
-        const title = row[1] || 'Không tên';
-        const deadlineStr = row[7];
-        if (!deadlineStr) return;
-
-        let dl;
-        try {
-          const parts = String(deadlineStr).split(' ')[0].split('/');
-          dl = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
-        } catch(e) { return; }
-
-        if (isNaN(dl)) return;
-        dl.setHours(0,0,0,0);
-
-        if (dl < today) overdue.push(title);
-        else if (dl.getTime() === today.getTime()) todayTasks.push(title);
-      });
-
-      if (navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'CHECK_DEADLINES',
-          overdue,
-          today: todayTasks
-        });
-      }
-    }
-
-    // Handle shortcut URLs (#them, #chitieu etc.)
-    window.addEventListener('DOMContentLoaded', () => {
-      const hash = location.hash.replace('#', '').toUpperCase();
-      const tabMap = { THEM: 'THEM', CHITIEU: 'CHI_TIEU', GHICHU: 'GHI_CHU', CONGVIEC: 'CONG_VIEC', HOCHOI: 'HOC_HOI' };
-      if (hash && tabMap[hash]) {
-        setTimeout(() => window.switchTab && switchTab(tabMap[hash]), 800);
-      }
-    });
-    </script>
+    <script src="core/pwa.js"></script>
+    <script src="core/events.js"></script>
 </body>
 
 </html>

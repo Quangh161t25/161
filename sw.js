@@ -1,11 +1,11 @@
-// ============================================================
+﻿// ============================================================
 //  InfoSys Service Worker
 //  - Offline cache
 //  - Background sync check (simulated via periodic fetch)
 //  - Push notification support
 // ============================================================
 
-const CACHE_NAME = 'infosys-v22';
+const CACHE_NAME = 'infosys-v25';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -90,7 +90,7 @@ self.addEventListener('fetch', event => {
 
 // ---- Push notification received ----
 self.addEventListener('push', event => {
-  let data = { title: 'InfoSys', body: 'Bạn có thông báo mới', icon: './icon-192.png' };
+  let data = { title: 'InfoSys', body: 'Báº¡n cÃ³ thÃ´ng bÃ¡o má»›i', icon: './icon-192.png' };
   try { data = { ...data, ...event.data.json() }; } catch (e) {}
 
   event.waitUntil(
@@ -130,16 +130,16 @@ self.addEventListener('message', event => {
     const today = event.data.today || [];
 
     if (overdue.length > 0) {
-      self.registration.showNotification('⚠️ Công việc quá hạn', {
-        body: `${overdue.length} công việc đã quá hạn: ${overdue.slice(0,2).join(', ')}${overdue.length > 2 ? '...' : ''}`,
+      self.registration.showNotification('âš ï¸ CÃ´ng viá»‡c quÃ¡ háº¡n', {
+        body: `${overdue.length} cÃ´ng viá»‡c Ä‘Ã£ quÃ¡ háº¡n: ${overdue.slice(0,2).join(', ')}${overdue.length > 2 ? '...' : ''}`,
         icon: './icon-192.png',
         badge: './icon-72.png',
         vibrate: [300, 100, 300],
         tag: 'overdue-tasks'
       });
     } else if (today.length > 0) {
-      self.registration.showNotification('📋 Công việc hôm nay', {
-        body: `${today.length} việc cần làm hôm nay`,
+      self.registration.showNotification('ðŸ“‹ CÃ´ng viá»‡c hÃ´m nay', {
+        body: `${today.length} viá»‡c cáº§n lÃ m hÃ´m nay`,
         icon: './icon-192.png',
         badge: './icon-72.png',
         tag: 'today-tasks'
@@ -147,3 +147,6 @@ self.addEventListener('message', event => {
     }
   }
 });
+
+
+
