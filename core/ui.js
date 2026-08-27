@@ -54,7 +54,11 @@ async function switchTab(tabName) {
     if (analyticsDash) analyticsDash.style.display = currentView === 'THONG_KE' ? 'block' : 'none';
     
     const viewToggleBtn = document.getElementById('viewToggleBtn');
-    if (viewToggleBtn) viewToggleBtn.style.display = currentView === 'CONG_VIEC' ? 'inline-flex' : 'none';
+    if (viewToggleBtn) {
+        viewToggleBtn.style.display = currentView === 'CONG_VIEC' ? 'inline-flex' : 'none';
+        viewToggleBtn.innerHTML = taskViewMode === 'table' ? '<i data-lucide="layout-dashboard" style="width:16px; margin-right:4px;"></i> Kanban' : '<i data-lucide="table" style="width:16px; margin-right:4px;"></i> Table';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
     
     const quickAddDash = document.getElementById('quickAddDashboard');
     if (quickAddDash) quickAddDash.style.display = currentView === 'THEM' ? 'flex' : 'none';
@@ -137,6 +141,8 @@ function renderHeaders() {
     if (!CONFIG.tabs[currentTab]) return;
     let hiddenCols = ['trang_thai', 'dia_chi', 'map'];
     if (currentTab !== 'HOC_HOI' && currentTab !== 'CONG_VIEC' && currentTab !== 'DSNV' && currentTab !== 'MK') hiddenCols.push('anh', 'hinh_anh', 'anh_2');
+    if (currentTab === 'HOC_HOI') hiddenCols.push('file');
+    if (currentTab === 'BANG_TAM') hiddenCols.push('ngay', 'ngay_gio');
     const ths = CONFIG.tabs[currentTab].headers.map((h, i) => {
         if (i === 0 || hiddenCols.includes(h)) return '';
         let style = '';
@@ -153,6 +159,16 @@ function renderHeaders() {
             if (h === 'ghi_chu' || h === 'file_dinh_kem' || h === 'link_lien_quan') return '';
             if (h === 'tieu_de' || h === 'mo_ta') style = 'style="width: auto;"';
             else style = 'style="white-space: nowrap; width: 10%;"';
+        } else if (currentTab === 'HOC_HOI') {
+            if (h === 'link') style = 'style="white-space: nowrap; max-width: 200px;"';
+            else if (h === 'anh' || h === 'hinh_anh') style = 'style="white-space: nowrap; width: 75px; text-align: center;"';
+            else if (h === 'tag') style = 'style="white-space: nowrap; width: 110px;"';
+            else if (h === 'tieu_de') style = 'style="width: 22%;"';
+            else if (h === 'noi_dung') style = 'style="width: auto;"';
+        } else if (currentTab === 'BANG_TAM') {
+            if (h === 'ghi_chu') style = 'style="width: auto; min-width: 140px;"';
+            else if (h === 'noi_dung') style = 'style="width: 95px; min-width: 80px; max-width: 105px;"';
+            else if (h === 'tag') style = 'style="width: 75px; min-width: 65px; max-width: 80px; text-align: center;"';
         }
         
         let sortHtml = '';
@@ -166,9 +182,10 @@ function renderHeaders() {
             </span>`;
         }
         
-        return `<th ${style}><div style="display:flex; align-items:center;">${h.toUpperCase()}${sortHtml}</div></th>`;
+        const alignHeader = (currentTab === 'HOC_HOI' && (h === 'anh' || h === 'hinh_anh')) ? 'justify-content:center;' : '';
+        return `<th ${style}><div style="display:flex; align-items:center; ${alignHeader}">${h.toUpperCase()}${sortHtml}</div></th>`;
     }).join('');
-    head.innerHTML = `<tr><th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAll" ></th>${ths}</tr>`;
+    head.innerHTML = `<tr><th style="width: 36px; min-width: 36px; max-width: 36px; text-align: center; padding: 11px 4px;"><input type="checkbox" id="selectAll" ></th>${ths}</tr>`;
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
@@ -180,6 +197,8 @@ function renderTable() {
 
     let hiddenCols = ['trang_thai', 'dia_chi', 'map'];
     if (currentTab !== 'HOC_HOI' && currentTab !== 'CONG_VIEC' && currentTab !== 'DSNV' && currentTab !== 'MK') hiddenCols.push('anh', 'hinh_anh', 'anh_2');
+    if (currentTab === 'HOC_HOI') hiddenCols.push('file');
+    if (currentTab === 'BANG_TAM') hiddenCols.push('ngay', 'ngay_gio');
     const start = (currentPage - 1) * rowsPerPage;
     const end = start + rowsPerPage;
     const pageData = filteredData.slice(start, end);
@@ -243,11 +262,30 @@ function renderTable() {
         tableWrap.style.display = 'block';
         if (mobileList) mobileList.style.display = 'none';
         
+        let lastDateGroup = null;
         body.innerHTML = pageData.map((row) => {
             const sheetRow = row._sheetRow;
             const rowJson = JSON.stringify(row).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
-            return `<tr data-action="open-record-dbl" data-row="${sheetRow}">
-                <td style="text-align: center;" ><input type="checkbox" class="row-checkbox" data-index="${sheetRow}" ></td>
+            
+            let groupHeaderHtml = '';
+            if (currentTab === 'BANG_TAM') {
+                const dateVal = String(row[1] || '').trim().split(' ')[0] || 'Chưa có ngày';
+                if (dateVal !== lastDateGroup) {
+                    lastDateGroup = dateVal;
+                    groupHeaderHtml = `
+                    <tr class="date-group-row" style="background: #f1f5f9; border-top: 2px solid #cbd5e1; border-bottom: 1px solid #cbd5e1;">
+                        <td colspan="100%" style="padding: 8px 16px; font-weight: 700; color: #1e293b; font-size: 0.88rem;">
+                            <div style="display:inline-flex; align-items:center; gap:8px;">
+                                <i data-lucide="calendar" style="width:15px; height:15px; color:var(--primary);"></i>
+                                <span>Ngày: ${dateVal}</span>
+                            </div>
+                        </td>
+                    </tr>`;
+                }
+            }
+
+            return groupHeaderHtml + `<tr data-action="open-record-dbl" data-row="${sheetRow}">
+                <td style="width: 36px; min-width: 36px; max-width: 36px; text-align: center; padding: 10px 4px;"><input type="checkbox" class="row-checkbox" data-index="${sheetRow}"></td>
                 ${tabConfig.headers.map((h, i) => {
                 if (i === 0 || hiddenCols.includes(h)) return '';
 
@@ -264,19 +302,6 @@ function renderTable() {
                     </td>`;
                 }
 
-                if (currentTab === 'MK' && (h === 'mat_khau' || h === 'ten_dang_nhap') && cellVal) {
-                    const masked = '***';
-                    // We must escape quotes for the copy text.
-                    const safeCopyText = String(cellVal).replace(/'/g, "\\'");
-                    return `<td style="text-align: center; white-space: nowrap;">
-                        <span style="display:inline-flex; align-items:center; gap:8px;">
-                            ${masked}
-                            <button type="button" onclick="copyToClipboard('${safeCopyText}', event)" style="background:transparent; border:none; cursor:pointer; color:#64748b; padding:2px;" title="Sao chép">
-                                <i data-lucide="copy" style="width:14px; height:14px;"></i>
-                            </button>
-                        </span>
-                    </td>`;
-                }
 
                 if ((h.includes('anh') || h.includes('hinh') || h.includes('avatar') || h === 'link_anh') && cellVal) {
                     const url = String(cellVal);
@@ -329,11 +354,7 @@ function renderTable() {
                 } else if (currentTab === 'CONG_VIEC') {
                     if (h === 'ghi_chu' || h === 'file_dinh_kem' || h === 'link_lien_quan') return ''; // skip rendering these long columns
 
-                    if (h === 'muc_uu_tien') {
-                        if (cellVal === 'Cao') cellVal = '<span style="color:#ef4444; font-weight:bold;">Cao</span>';
-                        else if (cellVal === 'Trung bình') cellVal = '<span style="color:#f59e0b; font-weight:bold;">Trung bình</span>';
-                        else if (cellVal === 'Thấp') cellVal = '<span style="color:#10b981; font-weight:bold;">Thấp</span>';
-                    } else if (h === 'trang_thai') {
+                    if (h === 'trang_thai') {
                         if (cellVal === 'Hoàn thành') cellVal = '<span style="color:#10b981; font-weight:bold;">Hoàn thành</span>';
                         else if (cellVal === 'Đang làm') cellVal = '<span style="color:#3b82f6; font-weight:bold;">Đang làm</span>';
                         else if (cellVal === 'Chưa làm') cellVal = '<span style="color:#64748b; font-weight:bold;">Chưa làm</span>';
@@ -345,25 +366,91 @@ function renderTable() {
                         tdStyle = 'style="width: auto; font-weight: 500;"';
                     }
                 } else if (currentTab === 'HOC_HOI') {
-                    if (h === 'link' || h === 'file') {
-                        if (cellVal && cellVal.startsWith('http')) {
-                            cellVal = `<a href="${cellVal}" target="_blank" style="color:var(--primary); text-decoration:underline; font-weight:bold;">[Mở Link]</a>`;
+                    if (h === 'link') {
+                        tdStyle = 'style="max-width: 200px; word-break: break-all;"';
+                        if (cellVal) {
+                            const strVal = String(cellVal).trim();
+                            const href = (strVal.startsWith('http://') || strVal.startsWith('https://')) ? strVal : (strVal.includes('.') ? `https://${strVal}` : strVal);
+                            const isUrl = strVal.startsWith('http://') || strVal.startsWith('https://') || strVal.includes('.');
+                            if (isUrl) {
+                                cellVal = `<a href="${href}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" style="color:var(--primary); text-decoration:underline; font-weight:500; font-size:0.85rem; word-break:break-all; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;" title="${strVal}">${strVal}</a>`;
+                            } else {
+                                cellVal = `<div class="line-clamp-2" title="${strVal}">${strVal}</div>`;
+                            }
+                        } else {
+                            cellVal = '';
                         }
                     } else if (h === 'anh' || h === 'hinh_anh') {
+                        tdStyle = 'style="width: 75px; text-align: center; white-space: nowrap;"';
                         if (cellVal && cellVal.startsWith('http')) {
-                            cellVal = `<img src="${cellVal}" style="max-height: 50px; max-width: 50px; border-radius: 4px; object-fit: cover;">`;
+                            cellVal = `<img src="${cellVal}" style="max-height: 45px; max-width: 60px; border-radius: 4px; object-fit: cover; border: 1px solid #e2e8f0; vertical-align: middle;">`;
+                        } else {
+                            cellVal = '';
                         }
-                    } else if (h === 'tieu_de' || h === 'noi_dung') {
+                    } else if (h === 'tag') {
+                        tdStyle = 'style="width: 110px; white-space: nowrap;"';
+                    } else if (h === 'tieu_de') {
+                        tdStyle = 'style="width: 25%; font-weight: 600;"';
+                    } else if (h === 'noi_dung') {
+                        tdStyle = 'style="width: auto;"';
+                    }
+                    if (h === 'tieu_de' || h === 'noi_dung') {
                         if (cellVal) {
                             const escapedVal = String(cellVal).replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/\n/g, "\\n").replace(/\r/g, "");
+                            let displayVal = cellVal;
+                            
+                            if (h === 'noi_dung') {
+                                // Parse markdown images: ![alt](url)
+                                displayVal = String(displayVal).replace(/!\[.*?\]\((.*?)\)/g, '<br><img src="$1" style="max-width:100%; max-height:200px; border-radius:4px; margin-top:8px; object-fit:cover;"><br>');
+                                // Handle plain links ending in image extensions
+                                displayVal = displayVal.replace(/(^|\s)(https?:\/\/\S+\.(?:png|jpg|jpeg|gif|webp))(\s|$)/ig, '$1<br><img src="$2" style="max-width:100%; max-height:200px; border-radius:4px; margin-top:8px; object-fit:cover;"><br>$3');
+                                // Replace newlines with <br> for display
+                                displayVal = displayVal.replace(/\n/g, '<br>');
+                            }
+
                             cellVal = `<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
-                                <div class="line-clamp-3" style="flex-grow:1;">${cellVal}</div>
+                                <div class="line-clamp-4" style="flex-grow:1; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; text-overflow:ellipsis; word-break:break-word; max-height:5.6em; line-height:1.4;">${displayVal}</div>
                                 <button type="button" data-action="copy-to-clipboard" data-value="${escapedVal}" style="background:transparent; border:none; cursor:pointer; color:#64748b; padding:4px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:4px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'" title="Sao chép">
                                     <i data-lucide="copy" style="width:14px; height:14px;"></i>
                                 </button>
                             </div>`;
                             return `<td ${tdStyle}>${cellVal}</td>`;
                         }
+                    }
+                } else if (currentTab === 'BANG_TAM') {
+                    if (h === 'tag') {
+                        tdStyle = 'style="width: 75px; min-width: 65px; max-width: 80px; text-align: center; white-space: nowrap; padding: 8px 4px;"';
+                        let tagHtml = cellVal ? `<span style="background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; font-size: 0.72rem; font-weight: 700; padding: 2px 6px; border-radius: 10px; display: inline-block; white-space: nowrap;">${cellVal}</span>` : '';
+                        return `<td ${tdStyle}>${tagHtml}</td>`;
+                    } else if (h === 'noi_dung') {
+                        tdStyle = 'style="width: 95px; min-width: 80px; max-width: 105px; padding: 8px 4px;"';
+                        if (cellVal) {
+                            const rawStr = String(cellVal).trim();
+                            if (rawStr.startsWith('http://') || rawStr.startsWith('https://') || rawStr.includes('.')) {
+                                const href = (rawStr.startsWith('http://') || rawStr.startsWith('https://')) ? rawStr : 'https://' + rawStr;
+                                let label = rawStr.replace(/^https?:\/\//i, '').replace(/^www\./i, '').split('/')[0];
+                                if (label.length > 10) label = label.substring(0, 8) + '…';
+                                const displayVal = `<a href="${href}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" style="color:var(--primary); background:#eff6ff; border:1px solid #bfdbfe; padding:2px 6px; border-radius:6px; text-decoration:none; font-weight:600; font-size:0.75rem; display:inline-flex; align-items:center; gap:4px; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${rawStr}"><i data-lucide="external-link" style="width:11px; height:11px; flex-shrink:0;"></i><span style="overflow:hidden; text-overflow:ellipsis;">${label}</span></a>`;
+                                return `<td ${tdStyle}>${displayVal}</td>`;
+                            }
+                        }
+                        return `<td ${tdStyle}>${cellVal}</td>`;
+                    } else if (h === 'ghi_chu') {
+                        tdStyle = 'style="width: auto; min-width: 140px; word-break: break-word;"';
+                        const rawStr = String(cellVal || '').trim();
+                        const escapedVal = rawStr.replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/\n/g, "\\n").replace(/\r/g, "");
+                        let displayVal = rawStr;
+                        displayVal = displayVal.replace(/!\[.*?\]\((.*?)\)/g, '<br><img src="$1" style="max-width:100%; max-height:200px; border-radius:4px; margin-top:8px; object-fit:cover;"><br>');
+                        displayVal = displayVal.replace(/(^|\s)(https?:\/\/\S+\.(?:png|jpg|jpeg|gif|webp))(\s|$)/ig, '$1<br><img src="$2" style="max-width:100%; max-height:200px; border-radius:4px; margin-top:8px; object-fit:cover;"><br>$3');
+                        displayVal = displayVal.replace(/\n/g, '<br>');
+
+                        cellVal = `<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
+                            <div class="line-clamp-4" style="flex-grow:1; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; text-overflow:ellipsis; word-break:break-word; max-height:5.6em; line-height:1.4;">${displayVal}</div>
+                            <button type="button" data-action="copy-to-clipboard" data-value="${escapedVal}" style="background:transparent; border:none; cursor:pointer; color:#64748b; padding:3px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:4px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'" title="Sao chép">
+                                <i data-lucide="copy" style="width:13px; height:13px;"></i>
+                            </button>
+                        </div>`;
+                        return `<td ${tdStyle}>${cellVal}</td>`;
                     }
                 } else if (currentTab === 'DSNV') {
                     if (h === 'hashtag') {
@@ -393,6 +480,14 @@ function renderTable() {
                             cellVal = `<img src="${cellVal}" style="max-height: 50px; max-width: 50px; border-radius: 4px; object-fit: cover;">`;
                             return `<td ${tdStyle}>${cellVal}</td>`;
                         }
+                    }
+                }
+
+                if (h === 'link' && cellVal) {
+                    const strVal = String(cellVal).trim();
+                    const href = (strVal.startsWith('http://') || strVal.startsWith('https://')) ? strVal : (strVal.includes('.') ? `https://${strVal}` : strVal);
+                    if (strVal.startsWith('http://') || strVal.startsWith('https://') || strVal.includes('.')) {
+                        cellVal = `<a href="${href}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" style="color:var(--primary); text-decoration:underline; font-weight:500; word-break:break-all;" title="${strVal}">${strVal}</a>`;
                     }
                 }
 
@@ -487,7 +582,7 @@ function doGlobalSearch() {
         }
 
         let results = [];
-        const tabsToSearch = ['GHI_CHU', 'CHI_TIEU', 'CONG_VIEC', 'HOC_HOI', 'DSNV'];
+        const tabsToSearch = ['GHI_CHU', 'CHI_TIEU', 'CONG_VIEC', 'HOC_HOI', 'BANG_TAM', 'DSNV'];
         
         tabsToSearch.forEach(tab => {
             if (window.cachedData[tab]) {
@@ -502,6 +597,7 @@ function doGlobalSearch() {
                         else if (tab === 'CHI_TIEU') title = `Chi tiêu: ${row[config.headers.indexOf('so_tien')]} - ${row[config.headers.indexOf('loai_giao_dich')]}`;
                         else if (tab === 'CONG_VIEC') title = row[config.headers.indexOf('tieu_de')];
                         else if (tab === 'HOC_HOI') title = row[config.headers.indexOf('tieu_de')];
+                        else if (tab === 'BANG_TAM') title = row[config.headers.indexOf('ghi_chu')] || row[config.headers.indexOf('noi_dung')];
                         else if (tab === 'DSNV') title = row[config.headers.indexOf('ho_ten')];
 
                         results.push({
@@ -557,7 +653,7 @@ function filterTable() {
             const tabConfig = CONFIG.tabs[currentTab];
             let dateCols = [];
             if (tabConfig) {
-                dateCols = tabConfig.headers.map((h, i) => ['ngay', 'ngay_in', 'ngay_out', 'ngay_bat_dau', 'deadline', 'ngay_hoan_thanh'].includes(h) ? i : -1).filter(i => i !== -1);
+                dateCols = tabConfig.headers.map((h, i) => ['ngay', 'ngay_in', 'ngay_out', 'ngay_bat_dau', 'ngay_hoan_thanh'].includes(h) ? i : -1).filter(i => i !== -1);
             }
             if (dateCols.length === 0) dateCols = [1]; // Fallback to column 1 if no date columns found
 
@@ -595,8 +691,8 @@ function filterTable() {
         if (activePhanLoaiFilter && activePhanLoaiFilter.length > 0 && currentTab === 'GHI_CHU') {
             const colIndex = CONFIG.tabs[currentTab].headers.indexOf('phan_loai');
             phanLoaiMatch = activePhanLoaiFilter.includes(row[colIndex]);
-        } else if (activePhanLoaiFilter && activePhanLoaiFilter.length > 0 && (currentTab === 'HOC_HOI' || currentTab === 'DSNV')) {
-            const colName = currentTab === 'HOC_HOI' ? 'tag' : 'hashtag';
+        } else if (activePhanLoaiFilter && activePhanLoaiFilter.length > 0 && (currentTab === 'HOC_HOI' || currentTab === 'DSNV' || currentTab === 'MK' || currentTab === 'BANG_TAM')) {
+            const colName = currentTab === 'DSNV' ? 'hashtag' : 'tag';
             const colIndex = CONFIG.tabs[currentTab].headers.indexOf(colName);
             if (colIndex !== -1) {
                 const tags = String(row[colIndex] || '').split(',').map(s => s.trim());
@@ -701,7 +797,7 @@ function renderTabFilters() {
         container.innerHTML = `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">${html}</div>`;
     } else if (currentTab === 'CONG_VIEC') {
         const tabConfig = CONFIG.tabs[currentTab];
-        const colsToFilter = ['danh_muc', 'muc_uu_tien', 'trang_thai', 'tag'];
+        const colsToFilter = ['danh_muc', 'trang_thai', 'tag'];
         let html = '';
         colsToFilter.forEach(col => {
             const colIndex = tabConfig.headers.indexOf(col);
@@ -722,9 +818,9 @@ function renderTabFilters() {
             html += btnHtml;
         });
         container.innerHTML = `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">${html}</div>`;
-    } else if (currentTab === 'HOC_HOI' || currentTab === 'DSNV') {
+    } else if (currentTab === 'HOC_HOI' || currentTab === 'DSNV' || currentTab === 'MK' || currentTab === 'BANG_TAM') {
         const tabConfig = CONFIG.tabs[currentTab];
-        const colName = currentTab === 'HOC_HOI' ? 'tag' : 'hashtag';
+        const colName = currentTab === 'DSNV' ? 'hashtag' : 'tag';
         const colIndex = tabConfig.headers.indexOf(colName);
         if (colIndex !== -1) {
             const allTags = allData.map(row => row[colIndex]).filter(v => v && typeof v === 'string' && v.trim() !== '').flatMap(v => v.split(',').map(s => s.trim()));
@@ -798,8 +894,10 @@ function quickFilterDate(type) {
 }
 
 
-function toggleSelectAll() {
-    const isChecked = document.getElementById('selectAll').checked;
+function toggleSelectAll(targetEl = null) {
+    const selectAllEl = targetEl || document.getElementById('selectAll') || document.getElementById('selectAllCb');
+    if (!selectAllEl) return;
+    const isChecked = selectAllEl.checked;
     const checkboxes = document.querySelectorAll('.row-checkbox');
     checkboxes.forEach(cb => cb.checked = isChecked);
     updateBatchButtons();
@@ -812,11 +910,18 @@ function handleRowCheckbox() {
 
 
 function updateBatchButtons() {
+    const totalCheckboxes = document.querySelectorAll('.row-checkbox');
     const checkedCount = document.querySelectorAll('.row-checkbox:checked').length;
     const editBtn = document.getElementById('batchEditPhanLoaiBtn');
     const editGioiTinhBtn = document.getElementById('batchEditGioiTinhBtn');
     const editHashtagBtn = document.getElementById('batchEditHashtagBtn');
     const delBtn = document.getElementById('batchDeleteBtn');
+    const selectAll = document.getElementById('selectAll') || document.getElementById('selectAllCb');
+    
+    if (selectAll) {
+        selectAll.checked = totalCheckboxes.length > 0 && checkedCount === totalCheckboxes.length;
+        selectAll.indeterminate = checkedCount > 0 && checkedCount < totalCheckboxes.length;
+    }
     
     if (checkedCount > 0) {
         if (editBtn) editBtn.style.display = currentTab === 'GHI_CHU' ? 'inline-block' : 'none';
@@ -828,8 +933,6 @@ function updateBatchButtons() {
         if (editGioiTinhBtn) editGioiTinhBtn.style.display = 'none';
         if (editHashtagBtn) editHashtagBtn.style.display = 'none';
         if (delBtn) delBtn.style.display = 'none';
-        const selectAll = document.getElementById('selectAll');
-        if (selectAll) selectAll.checked = false;
     }
 }
 
@@ -844,10 +947,7 @@ function openBatchEdit(colName, modalTitle, modalLabel, defaultTags = [], initia
 
     if (!initialValue && checkboxes.length > 0) {
         // Lấy giá trị của dòng đầu tiên được chọn làm giá trị mặc định để sửa
-        const firstCb = checkboxes[0];
-        const sheetRow = firstCb.getAttribute('data-index');
-        const rowData = allData.find(r => String(r._sheetRow) === String(sheetRow));
-        if (rowData && colIndex !== -1) {
+                if (rowData && colIndex !== -1) {
             initialValue = rowData[colIndex] || '';
         }
     }
@@ -878,38 +978,37 @@ function openBatchEdit(colName, modalTitle, modalLabel, defaultTags = [], initia
 
     document.getElementById('batchEditModal').style.display = 'flex';
     
-    // Khởi tạo màu cho các nút tag
     setTimeout(() => { if(window.updateTagButtonsUI) window.updateTagButtonsUI('batchEditPhanLoaiInput'); }, 10);
 }
-
 
 function openBatchEditPhanLoai() {
     openBatchEdit('phan_loai', 'Sửa phân loại hàng loạt', 'PHÂN LOẠI MỚI', ['Ghi chú', 'Sự kiện', 'Ảnh']);
 }
 
-
 function openBatchEditGioiTinh() {
     openBatchEdit('gioi_tinh', 'Sửa giới tính hàng loạt', 'GIỚI TÍNH MỚI', ['Nam', 'Nữ']);
 }
-
 
 function openBatchEditHashtag() {
     openBatchEdit('hashtag', 'Sửa hashtag hàng loạt', 'HASHTAG MỚI', []);
 }
 
-
 function closeBatchEditModal() {
     document.getElementById('batchEditModal').style.display = 'none';
 }
 
-
 function openRecordForm(rowData = null, sheetRow = null) {
+    if (!Array.isArray(rowData)) {
+        rowData = null;
+        sheetRow = null;
+    }
     if (!currentTab) return;
     const tabConfig = CONFIG.tabs[currentTab];
+    if (!tabConfig) return;
     const fieldsDiv = document.getElementById('formFields');
     const now = new Date();
     const offset = now.getTimezoneOffset() * 60000;
-    const formattedNow = (new Date(Date.now() - offset)).toISOString().slice(0, 16); // YYYY-MM-DDThh:mm
+    const formattedNow = (new Date(Date.now() - offset)).toISOString().slice(0, 16);
 
     editingSheetRow = sheetRow;
     const isEdit = rowData && sheetRow;
@@ -977,7 +1076,7 @@ function openRecordForm(rowData = null, sheetRow = null) {
         } else if (h === 'phan_loai') {
             const colIndex = tabConfig.headers.indexOf('phan_loai');
             const existingTags = new Set(allData.map(row => row[colIndex]).filter(v => v && typeof v === 'string' && v.trim() !== ''));
-            ['Ghi chú', 'Sự kiện', 'Ảnh'].forEach(t => existingTags.add(t)); // Add default tags
+            ['Ghi chú', 'Sự kiện', 'Ảnh'].forEach(t => existingTags.add(t));
 
             const tagsHtml = Array.from(existingTags).map(t =>
                 `<button type="button" class="tag-btn" onclick="document.getElementById('input_phan_loai').value='${t.replace(/'/g, "&#39;")}'">${t}</button>`
@@ -987,11 +1086,15 @@ function openRecordForm(rowData = null, sheetRow = null) {
                 <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập hoặc chọn phân loại...">
                 <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
             `;
-        } else if (h === 'tag' && currentTab === 'HOC_HOI') {
+        } else if (h === 'tag' && (currentTab === 'HOC_HOI' || currentTab === 'BANG_TAM')) {
             const colIndex = tabConfig.headers.indexOf('tag');
             const allTags = allData.map(row => row[colIndex]).filter(v => v && typeof v === 'string' && v.trim() !== '').flatMap(v => v.split(',').map(s => s.trim()));
             const existingTags = new Set(allTags);
-            ['Lập trình', 'Thiết kế', 'Công cụ', 'Bài viết hay'].forEach(t => existingTags.add(t));
+            if (currentTab === 'HOC_HOI') {
+                ['Lập trình', 'Thiết kế', 'Công cụ', 'Bài viết hay'].forEach(t => existingTags.add(t));
+            } else if (currentTab === 'BANG_TAM') {
+                ['Quan trọng', 'Tạm thời', 'Cần xử lý', 'Ý tưởng'].forEach(t => existingTags.add(t));
+            }
 
             const tagsHtml = Array.from(existingTags).map(t =>
                 `<button type="button" class="tag-btn" data-tag="${t.replace(/"/g, '&quot;')}" onclick="window.toggleTag('input_${h}', '${t.replace(/'/g, "\\'")}')">${t}</button>`
@@ -1001,8 +1104,18 @@ function openRecordForm(rowData = null, sheetRow = null) {
                 <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập hoặc chọn nhiều tag (cách nhau bởi dấu phẩy)..." data-action="update-tags-input" data-input="input_${h}">
                 <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
             `;
-        } else if (h === 'noi_dung') {
-            inputHtml = `<textarea id="input_${h}" name="${h}" placeholder="Nhập ${h}..." rows="3">${val}</textarea>`;
+        } else if (['noi_dung', 'mo_ta', 'ghi_chu', 'chi_tiet'].includes(h)) {
+            let previewImages = '';
+            const urlMatches = [...String(val || '').matchAll(/(?:!\[.*?\]\((.*?)\))|(?:(?:^|\s)(https?:\/\/\S+\.(?:png|jpg|jpeg|gif|webp))(?:$|\s))/ig)];
+            if (urlMatches && urlMatches.length > 0) {
+                const urls = urlMatches.map(m => m[1] || m[2]).filter(Boolean);
+                if (urls.length > 0) {
+                    previewImages = `<div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">` + 
+                        urls.map(u => `<img src="${u}" style="max-height:100px; border-radius:4px; border:1px solid #e2e8f0; object-fit:cover;">`).join('') + 
+                        `</div>`;
+                }
+            }
+            inputHtml = `<textarea id="input_${h}" name="${h}" placeholder="Nhập ${h}..." rows="5" style="min-height:140px; line-height:1.6; resize:vertical; font-family:inherit; width:100%; white-space:pre-wrap; word-break:break-word; overflow-wrap:break-word;">${val}</textarea><div id="preview_${h}">${previewImages}</div>`;
         } else if (h === 'loai_giao_dich') {
             const options = ['Chi', 'Thu', 'Chuyển khoản'];
             const valOrDefault = val || 'Chi';
@@ -1054,11 +1167,8 @@ function openRecordForm(rowData = null, sheetRow = null) {
                 <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập hoặc chọn ${h}...">
                 <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
             `;
-        } else if (currentTab === 'CONG_VIEC' && ['mo_ta', 'ghi_chu'].includes(h)) {
-            inputHtml = `<textarea id="input_${h}" name="${h}" placeholder="Nhập ${h}..." rows="3">${val}</textarea>`;
-        } else if (currentTab === 'CONG_VIEC' && ['muc_uu_tien', 'trang_thai', 'danh_muc'].includes(h)) {
-            const opts = h === 'muc_uu_tien' ? ['Cao', 'Trung bình', 'Thấp'] :
-                h === 'trang_thai' ? ['Chưa làm', 'Đang làm', 'Hoàn thành', 'Tạm dừng'] :
+        } else if (currentTab === 'CONG_VIEC' && ['trang_thai', 'danh_muc'].includes(h)) {
+            const opts = h === 'trang_thai' ? ['Chưa làm', 'Đang làm', 'Hoàn thành', 'Tạm dừng'] :
                     ['Công việc', 'Cá nhân', 'Gia đình', 'Học tập', 'Khác'];
             const tagsHtml = opts.map(o =>
                 `<button type="button" class="tag-btn" data-action="set-input-val" data-input="input_${h}" data-val="${o}">${o}</button>`
@@ -1067,7 +1177,7 @@ function openRecordForm(rowData = null, sheetRow = null) {
                 <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập ${h}...">
                 <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
             `;
-        } else if (currentTab === 'CONG_VIEC' && ['ngay_bat_dau', 'deadline', 'ngay_hoan_thanh'].includes(h)) {
+        } else if (h === 'ngay_gio' || (currentTab === 'CONG_VIEC' && ['ngay_bat_dau', 'ngay_hoan_thanh'].includes(h))) {
             let dateVal = val;
             if (val && String(val).includes('/')) {
                 const parts = String(val).split(' ');
@@ -1075,10 +1185,10 @@ function openRecordForm(rowData = null, sheetRow = null) {
                 dateVal = `${yyyy}-${mm}-${dd}T${parts[1] || '00:00'}`;
             } else if (!isEdit && !val) {
                 const localNow = new Date();
-                if (h === 'ngay_bat_dau') {
+                if (h === 'ngay_gio' || h === 'ngay_bat_dau') {
                     dateVal = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                } else if (h === 'deadline') {
-                    localNow.setHours(localNow.getHours() + 1);
+                } else if (h === 'ngay_hoan_thanh') {
+                    localNow.setMinutes(localNow.getMinutes() + 30);
                     dateVal = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
                 }
             }
@@ -1132,7 +1242,7 @@ function openRecordForm(rowData = null, sheetRow = null) {
                 <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
             `;
         }
-        if (h.includes('anh') || h.includes('hinh') || h.includes('avatar') || h === 'link' || h === 'link_anh') {
+        if (['anh', 'anh_2', 'hinh_anh', 'avatar', 'link', 'link_anh'].includes(h)) {
             inputHtml = inputHtml.replace(`<input type="text" id="input_${h}"`, `<input type="text" id="input_${h}" data-action="img-preview-input" data-preview="preview_${h}"`);
             
             let imgPreview = '';
@@ -1155,7 +1265,8 @@ function openRecordForm(rowData = null, sheetRow = null) {
                 </div>
             `;
         }
-        return `<div class="form-group"><label>${h.toUpperCase()}</label>${inputHtml}</div>`;
+        const isFullWidth = ['tieu_de', 'mo_ta', 'noi_dung', 'ghi_chu', 'link_lien_quan', 'file_dinh_kem'].includes(h);
+        return `<div class="form-group ${isFullWidth ? 'full-width' : ''}" style="${isFullWidth ? 'grid-column: 1 / -1;' : ''}"><label>${h.toUpperCase()}</label>${inputHtml}</div>`;
     }).join('');
 
     document.getElementById('productModal').style.display = 'flex';
@@ -1259,5 +1370,8 @@ function setPhanLoaiFilter(tag) {
     renderTabFilters();
     filterTable();
 }
+
+
+
 
 

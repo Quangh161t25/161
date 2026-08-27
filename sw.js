@@ -1,11 +1,11 @@
-﻿// ============================================================
+// ============================================================
 //  InfoSys Service Worker
 //  - Offline cache
 //  - Background sync check (simulated via periodic fetch)
 //  - Push notification support
 // ============================================================
 
-const CACHE_NAME = 'infosys-v25';
+const CACHE_NAME = 'infosys-v50';
 const STATIC_ASSETS = [
   './',
   './index.html',
@@ -147,6 +147,11 @@ self.addEventListener('message', event => {
     }
   }
 });
+
+
+
+
+
 
 
 

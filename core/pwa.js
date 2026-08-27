@@ -1,4 +1,4 @@
-    // ---- Register Service Worker ----
+ï»¿    // ---- Register Service Worker ----
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
@@ -32,27 +32,8 @@
 
     // Check CONG_VIEC deadlines and notify via SW
     function checkDeadlines() {
-      if (!window.allData || window.currentTab !== 'CONG_VIEC') return;
-      if (Notification.permission !== 'granted') return;
-
-      const today = new Date(); today.setHours(0,0,0,0);
-      const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
-
-      const overdue = [];
-      const todayTasks = [];
-
-      (window.allData || []).forEach(row => {
-        const status = row[5];
-        if (status === 'Hoàn thành') return;
-        const title = row[1] || 'Không tên';
-        const deadlineStr = row[7];
-        if (!deadlineStr) return;
-
-        let dl;
-        try {
-          const parts = String(deadlineStr).split(' ')[0].split('/');
-          dl = new Date(parts[2] + '-' + parts[1] + '-' + parts[0]);
-        } catch(e) { return; }
+        // Feature disabled as deadline column was removed
+    } catch(e) { return; }
 
         if (isNaN(dl)) return;
         dl.setHours(0,0,0,0);
@@ -78,3 +59,4 @@
         setTimeout(() => window.switchTab && window.switchTab(tabMap[hash]), 800);
       }
     });
+

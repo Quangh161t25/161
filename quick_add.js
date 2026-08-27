@@ -1,4 +1,4 @@
-// ============================================================
+﻿// ============================================================
 //  QUICK ADD DASHBOARD — Redesigned
 // ============================================================
 
@@ -122,15 +122,17 @@ function generateFormHTML(tabName) {
                     `<button type="button" class="plus30-btn" onclick="setNgayOutPlus30QuickAdd('${tabName}')">+30p</button>`);
                 break;
             case 'ngay_bat_dau':
-            case 'deadline':
+            
             case 'ngay_hoan_thanh': {
                 let defaultDate = '';
                 if (h === 'ngay_bat_dau') {
                     const localNow = new Date();
                     defaultDate = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                } else if (h === 'deadline') {
+                } else if (h === 'ngay_hoan_thanh') {
                     const localNow = new Date();
-                    localNow.setHours(localNow.getHours() + 1);
+                    localNow.setMinutes(localNow.getMinutes() + 30);
+                    defaultDate = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+                }
                     defaultDate = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
                 }
                 inputHtml = _fieldDateTime(id, defaultDate);
@@ -278,7 +280,7 @@ async function saveQuickAdd(e, tabName) {
             if (h === 'ngay' && val) {
                 const [y, m, d] = val.split('-');
                 if (y && m && d) val = `${d}/${m}/${y}`;
-            } else if (['ngay_in', 'ngay_out', 'ngay_bat_dau', 'deadline', 'ngay_hoan_thanh'].includes(h) && val) {
+            } else if (['ngay_in', 'ngay_out', 'ngay_bat_dau', 'ngay_hoan_thanh'].includes(h) && val) {
                 const [datePart, timePart] = val.split('T');
                 if (datePart) {
                     const [y, m, d] = datePart.split('-');
@@ -370,3 +372,6 @@ function getLocationQuickAdd(tabName) {
 function updateMapFromInputQuickAdd(_tabName) {
     // Map preview disabled in quick-add to save space
 }
+
+
+

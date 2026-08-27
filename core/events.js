@@ -61,7 +61,10 @@ function setupEventListeners() {
     if (batchDeleteBtn) batchDeleteBtn.addEventListener('click', batchDelete);
 
     const addRecordBtn = document.getElementById('addRecordBtn');
-    if (addRecordBtn) addRecordBtn.addEventListener('click', openRecordForm);
+    if (addRecordBtn) addRecordBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        openRecordForm();
+    });
 
     const excelFileInput = document.getElementById('excelFileInput');
     if (excelFileInput) excelFileInput.addEventListener('change', handleFileUpload);
@@ -389,6 +392,19 @@ function setupEventListeners() {
 
     // Delegated input listener
     document.addEventListener('input', (e) => {
+        // Auto-fill ngay_hoan_thanh = ngay_bat_dau + 30 mins (realtime)
+        if (e.target.id === 'input_ngay_bat_dau') {
+            const endInput = document.getElementById('input_ngay_hoan_thanh');
+            if (endInput && e.target.value) {
+                const startDate = new Date(e.target.value);
+                if (!isNaN(startDate.getTime())) {
+                    startDate.setMinutes(startDate.getMinutes() + 30);
+                    const tzOffset = startDate.getTimezoneOffset() * 60000;
+                    endInput.value = (new Date(startDate.getTime() - tzOffset)).toISOString().slice(0, 16);
+                }
+            }
+        }
+
         if (e.target.matches('[data-action="update-tags-input"]')) {
             const inputId = e.target.getAttribute('data-input');
             if (updateTagButtonsUI) updateTagButtonsUI(inputId);
@@ -414,6 +430,25 @@ function setupEventListeners() {
 
     // Delegated change listener
     document.addEventListener('change', (e) => {
+        // Auto-fill ngay_hoan_thanh = ngay_bat_dau + 30 mins
+        if (e.target.id === 'input_ngay_bat_dau') {
+            const endInput = document.getElementById('input_ngay_hoan_thanh');
+            if (endInput && e.target.value) {
+                const startDate = new Date(e.target.value);
+                if (!isNaN(startDate.getTime())) {
+                    startDate.setMinutes(startDate.getMinutes() + 30);
+                    const tzOffset = startDate.getTimezoneOffset() * 60000;
+                    endInput.value = (new Date(startDate.getTime() - tzOffset)).toISOString().slice(0, 16);
+                }
+            }
+        }
+
+        // Select all header checkbox
+        if (e.target.id === 'selectAll' || e.target.id === 'selectAllCb') {
+            if (typeof toggleSelectAll === 'function') toggleSelectAll(e.target);
+            return;
+        }
+
         // Table row checkbox
         if (e.target.matches('.row-checkbox')) {
             if (typeof updateBatchButtons === 'function') updateBatchButtons();
@@ -428,22 +463,6 @@ function setupEventListeners() {
             return;
         }
     });
-
-    // Global Check All logic
-    const selectAllCb = document.getElementById('selectAllCb');
-    if (selectAllCb) {
-        selectAllCb.addEventListener('change', (e) => {
-            if (typeof toggleSelectAll === 'function') toggleSelectAll(e.target);
-        });
-    }
-}
-
-// Call setup after DOM is fully parsed
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', setupEventListeners);
-} else {
-    setupEventListeners();
-}
 
     // Delegated dblclick listener
     document.addEventListener('dblclick', (e) => {
@@ -492,5 +511,99 @@ if (document.readyState === 'loading') {
         }
     });
 
+
+
+
+    // Paste event listener to support image pasting directly into textareas
+    document.addEventListener('paste', async (e) => {
+        if (e.target.tagName === 'TEXTAREA' && e.target.id === 'input_noi_dung') {
+            const items = (e.clipboardData || window.clipboardData).items;
+            for (let index in items) {
+                const item = items[index];
+                if (item.kind === 'file' && item.type.indexOf('image/') === 0) {
+                    e.preventDefault();
+                    const file = item.getAsFile();
+                    if (!file) continue;
+
+                    const originalText = e.target.value;
+                    const startPos = e.target.selectionStart;
+                    const endPos = e.target.selectionEnd;
+                    
+                    // Show loading text inline
+                    const loadingText = " [Đang tải ảnh...] ";
+                    e.target.value = originalText.substring(0, startPos) + loadingText + originalText.substring(endPos);
+                    e.target.selectionStart = startPos;
+                    e.target.selectionEnd = startPos + loadingText.length;
+
+                    try {
+                        const formData = new FormData();
+                        formData.append('image', file);
+                        formData.append('key', '1bad1429a242d7040fda3f2cfddb3a25'); // default ImgBB key
+
+                        const res = await fetch('https://api.imgbb.com/1/upload', { method: 'POST', body: formData });
+                        const data = await res.json();
+                        
+                        if (data && data.success) {
+                            const url = data.data.url;
+                            const md = "\\n![image](" + url + ")\\n";
+                            
+                            // Replace loading text with actual markdown link
+                            const newText = e.target.value;
+                            e.target.value = newText.substring(0, startPos) + md + newText.substring(startPos + loadingText.length);
+                        } else {
+                            // Revert on error
+                            const newText = e.target.value;
+                            e.target.value = newText.substring(0, startPos) + " [Lỗi tải ảnh] " + newText.substring(startPos + loadingText.length);
+                        }
+                    } catch (err) {
+                        console.error('Image upload failed', err);
+                        const newText = e.target.value;
+                        e.target.value = newText.substring(0, startPos) + " [Lỗi mạng] " + newText.substring(startPos + loadingText.length);
+                    }
+                    break; // Only process one image
+                }
+            }
+        }
+    });
+
+    document.addEventListener('input', (e) => {
+        if (e.target.tagName === 'TEXTAREA' && e.target.id === 'input_noi_dung') {
+            const val = e.target.value || '';
+            const p = document.getElementById('preview_noi_dung');
+            if (p) {
+                const urlMatches = [...val.matchAll(/(?:!\[.*?\]\((.*?)\))|(?:(?:^|\s)(https?:\/\/\S+\.(?:png|jpg|jpeg|gif|webp))(?:$|\s))/ig)];
+                if (urlMatches && urlMatches.length > 0) {
+                    const urls = urlMatches.map(m => m[1] || m[2]).filter(Boolean);
+                    if (urls.length > 0) {
+                        p.innerHTML = '<div style="margin-top:10px; display:flex; gap:10px; flex-wrap:wrap;">' + 
+                            urls.map(u => '<img src="' + u + '" style="max-height:100px; border-radius:4px; border:1px solid #e2e8f0; object-fit:cover;">').join('') + 
+                            '</div>';
+                    } else {
+                        p.innerHTML = '';
+                    }
+                } else {
+                    p.innerHTML = '';
+                }
+            }
+        }
+    });
+    // 25. Listen to Extension updates for BANG_TAM
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+        chrome.runtime.onMessage.addListener((msg) => {
+            if (msg && msg.action === 'BANG_TAM_UPDATED') {
+                window.cachedData['BANG_TAM'] = null;
+                if (currentTab === 'BANG_TAM') {
+                    fetchData(true);
+                }
+            }
+        });
+    }
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupEventListeners);
+} else {
+    setupEventListeners();
+}
 
 

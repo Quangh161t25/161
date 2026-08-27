@@ -4,23 +4,14 @@ function renderTaskDashboard() {
 
     let todayTasks = 0;
     let completedTasks = 0;
-    let overdueTasks = 0;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     filteredData.forEach(row => {
-        const status = row[5];
-        const deadlineStr = row[7];
+        const status = row[4]; // trang_thai is now index 4
 
         todayTasks++;
         if (status === 'Hoàn thành') completedTasks++;
-
-        if (deadlineStr && status !== 'Hoàn thành') {
-            const dl = parseSheetDate(deadlineStr);
-            if (dl > 0 && dl < today.getTime()) {
-                overdueTasks++;
-            }
-        }
     });
 
     const completionRate = todayTasks > 0 ? Math.round((completedTasks / todayTasks) * 100) : 0;
@@ -35,8 +26,8 @@ function renderTaskDashboard() {
             <p class="amount positive">${completedTasks} <span style="font-size: 14px; color:#64748b;">(${completionRate}%)</span></p>
         </div>
         <div class="dashboard-card">
-            <h3>Quá hạn</h3>
-            <p class="amount negative">${overdueTasks}</p>
+            <h3>Chưa xong</h3>
+            <p class="amount negative">${todayTasks - completedTasks}</p>
         </div>
     `;
 }
@@ -87,7 +78,7 @@ function renderKanban() {
     };
 
     filteredData.forEach(row => {
-        const status = row[5] || 'Chưa làm';
+        const status = row[4] || 'Chưa làm'; // trang_thai is now index 4
         if (tasksByStatus[status]) {
             tasksByStatus[status].push(row);
         } else {
@@ -104,89 +95,131 @@ function renderKanban() {
         if (status === 'Hoàn thành') headerColor = '#10b981';
         if (status === 'Tạm dừng') headerColor = '#f59e0b';
 
+        // Group tasks by date of ngay_bat_dau (row[5])
+        const dateGroups = {};
+        tasks.forEach(t => {
+            const rawDate = t[5] || '';
+            let dateKey = 'Chưa có ngày';
+            if (rawDate) {
+                const str = String(rawDate).trim();
+                if (str.includes(' ')) {
+                    dateKey = str.split(' ')[0];
+                } else if (str.includes('T')) {
+                    const [dPart] = str.split('T');
+                    const [y, m, d] = dPart.split('-');
+                    dateKey = (y && m && d) ? `${d}/${m}/${y}` : dPart;
+                } else {
+                    dateKey = str;
+                }
+            }
+            if (!dateGroups[dateKey]) dateGroups[dateKey] = [];
+            dateGroups[dateKey].push(t);
+        });
+
+        let cardsHtml = '';
+        const dateKeys = Object.keys(dateGroups);
+
+        if (dateKeys.length === 0) {
+            cardsHtml = `<div style="color:#94a3b8; font-size:0.85rem; text-align:center; padding: 20px 0;">Không có công việc</div>`;
+        } else {
+            dateKeys.forEach(dKey => {
+                const groupTasks = dateGroups[dKey];
+                cardsHtml += `
+                    <div class="kanban-date-group" style="margin-bottom: 12px;">
+                        <div style="font-size: 0.76rem; font-weight: 700; color: #475569; background: #e2e8f0; padding: 3px 8px; border-radius: 6px; margin-bottom: 8px; display: inline-flex; align-items: center; gap: 4px;">
+                            <i data-lucide="calendar" style="width:12px; height:12px;"></i> ${dKey}
+                            <span style="background:#cbd5e1; color:#334155; padding:0 5px; border-radius:10px; font-size:0.7rem; margin-left:2px;">${groupTasks.length}</span>
+                        </div>
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            ${groupTasks.map(t => {
+                                const danh_muc = t[3]; // danh_muc is index 3
+                                const ngay_bat_dau = t[5] || ''; // ngay_bat_dau is index 5
+                                const ghim = t[12]; // ghim is index 12
+                                let isPinned = (ghim === '1' || ghim === 'x' || String(ghim).toUpperCase() === 'TRUE');
+                                let pinColor = isPinned ? 'var(--primary)' : '#94a3b8';
+                                let fill = isPinned ? 'var(--primary)' : 'none';
+
+                                return `
+                                <div class="task-card" draggable="true" data-action="drag-task" data-row="${t._sheetRow}" ondragstart="dragStart(event, '${t._sheetRow}')" style="margin: 0; cursor: grab; padding: 12px; position: relative; background: #ffffff; border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.03); transition: transform 0.15s ease, box-shadow 0.15s ease;" ondblclick='openRecordForm(${JSON.stringify(t).replace(/'/g, "&#39;")}, ${t._sheetRow})'>
+                                    <button type="button" data-action="toggle-pin" data-row="${t._sheetRow}" data-col="12" data-pinned="${isPinned}" onclick="event.stopPropagation();" style="position:absolute; top:8px; right:8px; background:transparent; border:none; cursor:pointer; padding:4px;">
+                                        <i data-lucide="pin" style="width:14px; height:14px; color:${pinColor}; fill:${fill};"></i>
+                                    </button>
+                                    <div style="font-weight: 700; margin-bottom: 6px; font-size: 0.92rem; padding-right: 22px; word-break: break-word; line-height: 1.4; color: #1e293b;" title="${(t[1] || '').replace(/"/g, '&quot;')}">${t[1] || 'Không tiêu đề'}</div>
+                                    ${ngay_bat_dau ? `<div style="font-size: 0.78rem; color: #64748b; margin-bottom: 6px; display: flex; align-items: center; gap: 4px;"><i data-lucide="clock" style="width:12px; height:12px;"></i> ${ngay_bat_dau}</div>` : ''}
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 4px;">
+                                        <span class="task-card-badge badge-gray" style="font-size: 0.72rem; padding: 2px 7px; border-radius: 6px;">${danh_muc || 'Công việc'}</span>
+                                    </div>
+                                </div>`;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
         kanbanHtml += `
-            <div class="kanban-column" style="background: #f1f5f9; border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 250px;" data-action="drop-task" data-status="${status}">
-                <div style="font-weight: 800; color: ${headerColor}; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; display:flex; justify-content:space-between;">
-                    ${status} <span style="background:#e2e8f0; color:#475569; padding:2px 8px; border-radius:12px; font-size:0.8rem;">${tasks.length}</span>
+            <div class="kanban-column" data-action="drop-task" data-status="${status}" ondragover="allowDrop(event)" ondrop="dropTask(event, '${status}')" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px; display: flex; flex-direction: column; gap: 10px; width: 100%; min-width: 0; box-sizing: border-box;">
+                <div style="font-weight: 800; color: ${headerColor}; padding-bottom: 8px; border-bottom: 2px solid #e2e8f0; display:flex; justify-content:space-between; align-items: center;">
+                    <span>${status}</span>
+                    <span style="background:#e2e8f0; color:#475569; padding:2px 8px; border-radius:12px; font-size:0.8rem;">${tasks.length}</span>
                 </div>
-                <div class="kanban-cards" style="display: flex; flex-direction: column; gap: 10px; overflow-y:auto; max-height: 60vh;">
-                    ${tasks.map(t => {
-                        const priority = t[4];
-                        let pClass = 'badge-gray';
-                        if(priority === 'Cao') pClass = 'badge-red';
-                        if(priority === 'Trung bình') pClass = 'badge-yellow';
-                        if(priority === 'Thấp') pClass = 'badge-green';
-
-                        const ghim = t[15];
-                        let isPinned = (ghim === '1' || ghim === 'x' || String(ghim).toUpperCase() === 'TRUE');
-                        let pinColor = isPinned ? 'var(--primary)' : '#94a3b8';
-                        let fill = isPinned ? 'var(--primary)' : 'none';
-
-                        return `
-                        <div class="task-card" style="margin: 0; cursor: grab; padding: 12px; position: relative;" draggable="true" data-action="drag-task" data-row="${t._sheetRow}" ondblclick='openRecordForm(${JSON.stringify(t).replace(/'/g, "&#39;")}, ${t._sheetRow})'>
-                            <button type="button" data-action="toggle-pin" data-row="${t._sheetRow}" data-col="15" data-pinned="${isPinned}" style="position:absolute; top:8px; right:8px; background:transparent; border:none; cursor:pointer; padding:4px;">
-                                <i data-lucide="pin" style="width:14px; height:14px; color:${pinColor}; fill:${fill};"></i>
-                            </button>
-                            <div style="font-weight: 700; margin-bottom: 6px; font-size: 0.95rem; padding-right: 20px;">${t[1]}</div>
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <span class="task-card-badge ${pClass}">${priority || 'Không mức độ'}</span>
-                                <span style="font-size:0.75rem; color:#64748b; font-weight:600;">${t[7] || ''}</span>
-                            </div>
-                        </div>`;
-                    }).join('')}
+                <div class="kanban-cards" data-action="drop-task" data-status="${status}" ondragover="allowDrop(event)" ondrop="dropTask(event, '${status}')" style="display: flex; flex-direction: column; gap: 6px; overflow-y:auto; max-height: 70vh; padding-right: 2px; min-height: 100px;">
+                    ${cardsHtml}
                 </div>
             </div>
         `;
     });
 
+    kanbanDash.style.display = 'grid';
+    kanbanDash.style.gridTemplateColumns = 'repeat(4, minmax(0, 1fr))';
     kanbanDash.style.gap = '16px';
-    kanbanDash.style.overflowX = 'auto';
+    kanbanDash.style.width = '100%';
+    kanbanDash.style.boxSizing = 'border-box';
     kanbanDash.innerHTML = kanbanHtml;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 
 function dragStart(event, sheetRow) {
-    event.dataTransfer.setData("text/plain", sheetRow);
-    event.dataTransfer.effectAllowed = "move";
+    if (event.dataTransfer) {
+        event.dataTransfer.setData("text/plain", String(sheetRow));
+        event.dataTransfer.effectAllowed = "move";
+    }
 }
-
 
 function allowDrop(event) {
     event.preventDefault();
-    event.dataTransfer.dropEffect = "move";
+    if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "move";
+    }
 }
-
 
 async function dropTask(event, newStatus) {
     event.preventDefault();
-    const sheetRow = event.dataTransfer.getData("text/plain");
+    const sheetRow = event.dataTransfer ? event.dataTransfer.getData("text/plain") : null;
     if (!sheetRow) return;
 
     // Find the task in allData
-    const taskIndex = allData.findIndex(row => row._sheetRow == sheetRow);
+    const taskIndex = allData.findIndex(row => String(row._sheetRow) === String(sheetRow));
     if (taskIndex === -1) return;
-    
-    const task = allData[taskIndex];
-    if (task[5] === newStatus) return; // status didn't change
-    
-    // Update local data for immediate feedback
-    task[5] = newStatus;
-    
-    // Also update filteredData so it renders correctly
-    const fTaskIndex = filteredData.findIndex(row => row._sheetRow == sheetRow);
-    if (fTaskIndex !== -1) {
-        filteredData[fTaskIndex][5] = newStatus;
-    }
-    
-    renderKanban(); // re-render locally immediately
 
-    // Send API update
-    document.getElementById('loading').style.display = 'flex';
+    const task = allData[taskIndex];
+    const statusColIndex = CONFIG.tabs['CONG_VIEC'] ? CONFIG.tabs['CONG_VIEC'].headers.indexOf('trang_thai') : 4;
+    if (task[statusColIndex] === newStatus) return; // No change
+
+    // Optimistically update
+    task[statusColIndex] = newStatus;
+    const fTaskIndex = filteredData.findIndex(row => String(row._sheetRow) === String(sheetRow));
+    if (fTaskIndex !== -1) {
+        filteredData[fTaskIndex][statusColIndex] = newStatus;
+    }
+
+    renderKanban();
+
+    // Send update to Google Sheets
     try {
         const token = await getAccessToken();
-        const tabConfig = CONFIG.tabs['CONG_VIEC'];
-        const statusColIndex = tabConfig.headers.indexOf('trang_thai'); // 5
-        const colLetter = String.fromCharCode(65 + statusColIndex); // F
+        const colLetter = String.fromCharCode(65 + statusColIndex); // 0=A, 1=B, 2=C, 3=D, 4=E
         
         await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/CONG_VIEC!${colLetter}${sheetRow}?valueInputOption=RAW`, {
             method: 'PUT',
@@ -198,16 +231,12 @@ async function dropTask(event, newStatus) {
                 values: [[newStatus]]
             })
         });
-        
-        // Invalidate cache
+
         if (window.cachedData) window.cachedData['CONG_VIEC'] = null;
     } catch (err) {
         console.error("Error updating status:", err);
         alert("Lỗi khi cập nhật trạng thái!");
-        // Revert on error
-        await fetchData(true);
-    } finally {
-        document.getElementById('loading').style.display = 'none';
+        if (typeof fetchData === 'function') await fetchData(true);
     }
 }
 

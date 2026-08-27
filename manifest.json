@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "InfoSys Management",
-  "version": "1.0.0",
-  "description": "Hệ thống Quản lý InfoSys Extension",
+  "version": "1.0.2",
+  "description": "Hệ thống Quản lý InfoSys & Tự động lưu Bảng tạm",
   "icons": {
     "16": "favicon.png",
     "48": "favicon.png",
@@ -14,9 +14,27 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": [
-    "storage"
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
   ],
+  "permissions": [
+    "storage",
+    "sidePanel",
+    "contextMenus",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://sheets.googleapis.com/*",
+    "https://oauth2.googleapis.com/*"
+  ],
+  "side_panel": {
+    "default_path": "index.html"
+  },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self';"
   }

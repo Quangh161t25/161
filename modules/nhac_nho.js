@@ -1,4 +1,4 @@
-function checkReminders() {
+﻿function checkReminders() {
     if (!window.cachedData || !window.cachedData['CONG_VIEC'] || !window.cachedData['DSNV']) return;
     if ("Notification" in window && Notification.permission === "granted") {
         const today = new Date();
@@ -62,5 +62,6 @@ function checkReminders() {
         }
     }
 }
+
 
 

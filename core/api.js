@@ -19,9 +19,17 @@ async function fetchData(forceReload = false) {
             calculateExpenseBalances();
         } else if (currentTab === 'CONG_VIEC') {
             allData.sort((a, b) => {
-                const dateA = parseSheetDate(a[7]);
-                const dateB = parseSheetDate(b[7]);
-                if (dateA !== dateB && dateA !== 0 && dateB !== 0) return dateA - dateB;
+                const dateA = parseSheetDate(a[5]);
+                const dateB = parseSheetDate(b[5]);
+                if (dateA !== dateB && dateA !== 0 && dateB !== 0) return dateB - dateA;
+                return b._sheetRow - a._sheetRow;
+            });
+        } else if (currentTab === 'BANG_TAM') {
+            allData.sort((a, b) => {
+                const dateB = parseSheetDate(b[2]) || parseSheetDate(b[1]);
+                const dateA = parseSheetDate(a[2]) || parseSheetDate(a[1]);
+                const dateDiff = dateB - dateA;
+                if (dateDiff !== 0) return dateDiff;
                 return b._sheetRow - a._sheetRow;
             });
         } else {
@@ -60,9 +68,17 @@ async function fetchData(forceReload = false) {
             calculateExpenseBalances();
         } else if (currentTab === 'CONG_VIEC') {
             allData.sort((a, b) => {
-                const dateA = parseSheetDate(a[6]); // ngay_bat_dau
-                const dateB = parseSheetDate(b[6]);
+                const dateA = parseSheetDate(a[5]); // ngay_bat_dau is index 5
+                const dateB = parseSheetDate(b[5]);
                 if (dateA !== dateB && dateA !== 0 && dateB !== 0) return dateB - dateA;
+                return b._sheetRow - a._sheetRow;
+            });
+        } else if (currentTab === 'BANG_TAM') {
+            allData.sort((a, b) => {
+                const dateB = parseSheetDate(b[2]) || parseSheetDate(b[1]);
+                const dateA = parseSheetDate(a[2]) || parseSheetDate(a[1]);
+                const dateDiff = dateB - dateA;
+                if (dateDiff !== 0) return dateDiff;
                 return b._sheetRow - a._sheetRow;
             });
         } else {
@@ -185,7 +201,7 @@ async function saveRecordFromForm(e) {
             if ((h === 'ngay' || h === 'ngay_sinh') && val) {
                 const [y, m, d] = val.split('-');
                 if (y && m && d) val = `${d}/${m}/${y}`;
-            } else if (['ngay_in', 'ngay_out', 'ngay_bat_dau', 'deadline', 'ngay_hoan_thanh'].includes(h) && val) {
+            } else if (['ngay_in', 'ngay_out', 'ngay_bat_dau', 'ngay_hoan_thanh', 'ngay_gio'].includes(h) && val) {
                 const [datePart, timePart] = val.split('T');
                 if (datePart) {
                     const [y, m, d] = datePart.split('-');
@@ -354,5 +370,6 @@ async function executeBatchEditGeneric() {
         document.getElementById('loading').style.display = 'none';
     }
 }
+
 
 

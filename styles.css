@@ -529,6 +529,18 @@ tbody tr:hover td {
     word-break: break-word;
 }
 
+.line-clamp-4 {
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: normal;
+    word-break: break-word;
+    max-height: 6em;
+    line-height: 1.5;
+}
+
 td.multi-item-date {
     font-weight: 800;
     color: #92400e;
@@ -764,10 +776,20 @@ body.sidebar-collapsed .modal {
 .form-fields::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
 
 .form-fields label:has(textarea),
-.form-fields input[type="hidden"] {
+.form-fields input[type="hidden"],
+.form-fields .full-width {
     grid-column: 1 / -1;
 }
 
+.modal textarea {
+    min-height: 140px;
+    line-height: 1.6;
+    resize: vertical;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    font-family: inherit;
+}
 .modal input,
 .modal textarea,
 .modal select {
@@ -1188,27 +1210,25 @@ body.sidebar-collapsed .order-detail-modal {
 /* ============ KANBAN ============ */
 
 #kanbanDashboard {
-    display: flex;
-    gap: 14px;
-    overflow-x: auto;
-    padding-bottom: 12px;
-    scrollbar-width: thin;
-    scrollbar-color: #e2e8f0 transparent;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
+    width: 100%;
+    align-items: start;
+    box-sizing: border-box;
 }
-#kanbanDashboard::-webkit-scrollbar { height: 6px; }
-#kanbanDashboard::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 3px; }
 
 .kanban-column {
-    min-width: 260px;
-    max-width: 300px;
+    min-width: 0;
+    max-width: none;
     background: #f4f6fb;
     border-radius: var(--radius);
     padding: 14px;
     display: flex;
     flex-direction: column;
     gap: 10px;
-    flex-shrink: 0;
     border: 1px solid var(--border);
+    box-sizing: border-box;
 }
 
 .kanban-column-header {
@@ -1591,6 +1611,10 @@ body.sidebar-collapsed .order-detail-modal {
     text-transform: uppercase;
 }
 
+.form-group textarea {
+    min-height: 80px;
+    line-height: 1.6;
+}
 .form-group input,
 .form-group textarea,
 .form-group select {

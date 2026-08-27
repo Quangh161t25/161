@@ -42,8 +42,8 @@ sR2Sh8e3h3Knd6j1tceRIFU=
             headers: ['id', 'ngay', 'loai_giao_dich', 'tai_khoan', 'so_tien', 'hang_muc', 'tai_khoan_nhan', 'ghi_chu', 'so_du_ao', 'hashtag']
         },
         'CONG_VIEC': {
-            range: 'CONG_VIEC!A2:P',
-            headers: ['id', 'tieu_de', 'mo_ta', 'danh_muc', 'muc_uu_tien', 'trang_thai', 'ngay_bat_dau', 'deadline', 'ngay_hoan_thanh', 'tien_do', 'tag', 'ghi_chu', 'file_dinh_kem', 'link_lien_quan', 'lap_lai', 'ghim']
+            range: 'CONG_VIEC!A2:M',
+            headers: ['id', 'tieu_de', 'mo_ta', 'danh_muc', 'trang_thai', 'ngay_bat_dau', 'ngay_hoan_thanh', 'tag', 'ghi_chu', 'file_dinh_kem', 'link_lien_quan', 'lap_lai', 'ghim']
         },
         'HOC_HOI': {
             range: 'HOC_HOI!A2:I',
@@ -56,6 +56,10 @@ sR2Sh8e3h3Knd6j1tceRIFU=
         'MK': {
             range: 'MK!A2:N',
             headers: ['id', 'ngay', 'tag', 'nhan', 'ten_đang_nhap', 'mat_khau', 'noi_dung', 'ghi_chu', 'mail', 'tk', 'link', 'anh', 'anh_2', 'udt']
+        },
+        'BANG_TAM': {
+            range: 'BANG_TAM!A2:F',
+            headers: ['id', 'ngay', 'ngay_gio', 'ghi_chu', 'noi_dung', 'tag']
         }
     }
 };
@@ -97,7 +101,7 @@ let currentSortCol = null;
 let currentSortAsc = true;
 
 
-let taskViewMode = 'table'; // 'table' or 'kanban'
+let taskViewMode = 'kanban'; // 'table' or 'kanban'
 
 function toggleTaskView() {
     taskViewMode = taskViewMode === 'table' ? 'kanban' : 'table';
