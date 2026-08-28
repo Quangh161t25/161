@@ -203,8 +203,23 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.contextMenus) {
     chrome.runtime.onInstalled.addListener(() => {
         chrome.contextMenus.create({
             id: 'save_selection_to_bang_tam',
-            title: 'Lưu vào Bảng tạm (InfoSys)',
+            title: '📥 Lưu vào Bảng tạm (InfoSys)',
             contexts: ['selection', 'link', 'page']
+        });
+        chrome.contextMenus.create({
+            id: 'translate_selection',
+            title: '🌐 Dịch sang Tiếng Việt (Google Dịch)',
+            contexts: ['selection']
+        });
+        chrome.contextMenus.create({
+            id: 'speak_selection',
+            title: '🔊 Đọc văn bản Tiếng Việt',
+            contexts: ['selection']
+        });
+        chrome.contextMenus.create({
+            id: 'toggle_floating_widget',
+            title: '🔘 Bật / Tắt Icon nổi trên web',
+            contexts: ['action', 'page']
         });
     });
 
@@ -213,11 +228,96 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.contextMenus) {
             const text = info.selectionText || info.linkUrl || (tab ? tab.title : '') || '';
             const url = info.pageUrl || (tab ? tab.url : '') || '';
             saveToBangTam(text, url);
+        } else if (info.menuItemId === 'translate_selection') {
+            if (tab && tab.id && info.selectionText) {
+                chrome.tabs.sendMessage(tab.id, {
+                    action: 'TRIGGER_TRANSLATE',
+                    text: info.selectionText
+                }).catch(() => {});
+            }
+        } else if (info.menuItemId === 'speak_selection') {
+            if (tab && tab.id && info.selectionText) {
+                chrome.tabs.sendMessage(tab.id, {
+                    action: 'TRIGGER_SPEAK',
+                    text: info.selectionText
+                }).catch(() => {});
+            }
+        } else if (info.menuItemId === 'toggle_floating_widget') {
+            chrome.storage.local.get(['infosys_floating_icon_enabled'], (res) => {
+                const isCurrentlyEnabled = res.infosys_floating_icon_enabled !== false;
+                const nextState = !isCurrentlyEnabled;
+                chrome.storage.local.set({ infosys_floating_icon_enabled: nextState }, () => {
+                    if (chrome.tabs && chrome.tabs.query) {
+                        chrome.tabs.query({}, (tabs) => {
+                            tabs.forEach(t => {
+                                if (t && t.id) {
+                                    chrome.tabs.sendMessage(t.id, {
+                                        action: 'TOGGLE_FLOATING_ICON',
+                                        enabled: nextState
+                                    }).catch(() => {});
+                                }
+                            });
+                        });
+                    }
+                });
+            });
         }
     });
 }
 
-// --- Messages from content script ---
+// --- Translation Engine in Service Worker (No CORS limit) ---
+async function handleTranslateApi(text, targetLang = 'vi') {
+    if (!text || typeof text !== 'string') return '';
+    const cleanText = text.trim();
+
+    // 1. clients5.google.com dict-chrome-ex (used by official Google Translate extension)
+    try {
+        const url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=${targetLang}&q=${encodeURIComponent(cleanText)}`;
+        const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } });
+        if (res.ok) {
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                if (typeof data[0] === 'string') return data[0].trim();
+                if (Array.isArray(data[0]) && typeof data[0][0] === 'string') {
+                    return data.map(item => Array.isArray(item) ? item[0] : item).join('').trim();
+                }
+            }
+        }
+    } catch (e) {}
+
+    // 2. Google Translate Web /m
+    try {
+        const url = `https://translate.google.com/m?sl=auto&tl=${targetLang}&q=${encodeURIComponent(cleanText)}`;
+        const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15' } });
+        if (res.ok) {
+            const html = await res.text();
+            const match = html.match(/class="result-container">([\s\S]*?)<\/div>/);
+            if (match && match[1]) {
+                const decoded = match[1].replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+                if (decoded && decoded.trim().length > 0) return decoded.trim();
+            }
+        }
+    } catch (e) {}
+
+    // 3. MyMemory fallback
+    try {
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(cleanText)}&langpair=autodetect|${targetLang}`;
+        const res = await fetch(url);
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.responseData && data.responseData.translatedText) {
+                const decoded = data.responseData.translatedText.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+                if (decoded && !decoded.includes('QUERY LENGTH LIMIT') && !decoded.includes('INVALID SOURCE LANGUAGE')) {
+                    return decoded.trim();
+                }
+            }
+        }
+    } catch (e) {}
+
+    throw new Error('Không thể dịch tự động. Vui lòng kiểm tra lại mạng.');
+}
+
+// --- Messages from content script or side panel ---
 if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message && message.action === 'AUTO_COPY_SAVE') {
@@ -226,6 +326,27 @@ if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage)
                 sendResponse({ success });
             });
             return true; // Keep channel open for async response
+        } else if (message && message.action === 'TRANSLATE_TEXT') {
+            handleTranslateApi(message.text, message.targetLang || 'vi')
+                .then(translatedText => sendResponse({ success: true, translatedText }))
+                .catch(err => sendResponse({ success: false, error: err.message }));
+            return true; // Keep channel open for async response
+        } else if (message && message.action === 'TOGGLE_FLOATING_ICON') {
+            const nextState = message.enabled !== false;
+            chrome.storage.local.set({ infosys_floating_icon_enabled: nextState }, () => {
+                if (chrome.tabs && chrome.tabs.query) {
+                    chrome.tabs.query({}, (tabs) => {
+                        tabs.forEach(t => {
+                            if (t && t.id) {
+                                chrome.tabs.sendMessage(t.id, {
+                                    action: 'TOGGLE_FLOATING_ICON',
+                                    enabled: nextState
+                                }).catch(() => {});
+                            }
+                        });
+                    });
+                }
+            });
         }
     });
 }

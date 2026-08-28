@@ -45,6 +45,67 @@ function setupEventListeners() {
     const reloadBtn = document.getElementById('reloadBtn');
     if (reloadBtn) reloadBtn.addEventListener('click', reloadCurrentTab);
 
+    const globalToggleFloatingBtn = document.getElementById('globalToggleFloatingBtn');
+    if (globalToggleFloatingBtn) {
+        globalToggleFloatingBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (typeof toggleFloatingIconSetting === 'function') toggleFloatingIconSetting();
+        });
+    }
+
+    const ttsSettingsBtn = document.getElementById('ttsSettingsBtn');
+    if (ttsSettingsBtn) {
+        ttsSettingsBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (typeof openTtsSettingsModal === 'function') openTtsSettingsModal();
+        });
+    }
+
+    // TTS Settings Modal controls
+    const ttsRateSlider = document.getElementById('ttsRateSlider');
+    const ttsRateValue = document.getElementById('ttsRateValue');
+    if (ttsRateSlider && ttsRateValue) {
+        ttsRateSlider.addEventListener('input', (e) => {
+            ttsRateValue.textContent = `${parseFloat(e.target.value).toFixed(2)}x`;
+        });
+    }
+
+    const ttsTestBtn = document.getElementById('ttsTestBtn');
+    if (ttsTestBtn) {
+        ttsTestBtn.addEventListener('click', () => {
+            const slider = document.getElementById('ttsRateSlider');
+            const select = document.getElementById('ttsVoiceSelect');
+            const rate = slider ? parseFloat(slider.value) : 1.0;
+            const voice = select ? select.value : '';
+            if (window.ttsConfig) {
+                window.ttsConfig.rate = rate;
+                window.ttsConfig.voiceURI = voice;
+            }
+            if (typeof speakVietnamese === 'function') {
+                speakVietnamese("Xin chào! Đây là bản đọc thử với giọng và tốc độ bạn đã chọn.", ttsTestBtn, rate);
+            }
+        });
+    }
+
+    const ttsSaveBtn = document.getElementById('ttsSaveBtn');
+    if (ttsSaveBtn) {
+        ttsSaveBtn.addEventListener('click', () => {
+            const slider = document.getElementById('ttsRateSlider');
+            const select = document.getElementById('ttsVoiceSelect');
+            const rate = slider ? parseFloat(slider.value) : 1.0;
+            const voice = select ? select.value : '';
+            if (typeof saveTtsConfig === 'function') {
+                saveTtsConfig(rate, voice, 1.0);
+            }
+            if (typeof showInfoToast === 'function') {
+                showInfoToast(`Đã lưu: Tốc độ ${rate}x & Giọng đọc`, 'success');
+            }
+            if (typeof closeTtsSettingsModal === 'function') {
+                closeTtsSettingsModal();
+            }
+        });
+    }
+
     const viewToggleBtn = document.getElementById('viewToggleBtn');
     if (viewToggleBtn) viewToggleBtn.addEventListener('click', toggleTaskView);
 
@@ -256,6 +317,82 @@ function setupEventListeners() {
             return;
         }
 
+        // Toggle date group select button
+        const dateGroupBtn = e.target.closest('[data-action="toggle-date-group"]');
+        if (dateGroupBtn) {
+            e.stopPropagation();
+            e.preventDefault();
+            const gName = dateGroupBtn.getAttribute('data-date-group');
+            const rowCbs = document.querySelectorAll(`.row-checkbox[data-date-group="${gName}"]`);
+            const checkedCount = document.querySelectorAll(`.row-checkbox[data-date-group="${gName}"]:checked`).length;
+            const willCheck = checkedCount < rowCbs.length;
+            if (typeof handleDateGroupCheckbox === 'function') {
+                handleDateGroupCheckbox(gName, willCheck);
+            }
+            return;
+        }
+
+        // Speak Vietnamese (TTS)
+        const ttsBtn = e.target.closest('[data-action="speak-text"]');
+        if (ttsBtn) {
+            e.stopPropagation();
+            e.preventDefault();
+            const val = ttsBtn.getAttribute('data-value');
+            if (typeof speakVietnamese === 'function') {
+                speakVietnamese(val, ttsBtn);
+            }
+            return;
+        }
+
+        // Translate BANG_TAM row
+        const transBtn = e.target.closest('[data-action="translate-bangtam"]');
+        if (transBtn) {
+            e.stopPropagation();
+            e.preventDefault();
+            const row = transBtn.getAttribute('data-row');
+            const val = transBtn.getAttribute('data-value');
+            if (typeof handleTranslateBangTam === 'function') {
+                handleTranslateBangTam(row, val, transBtn);
+            }
+            return;
+        }
+
+        // Close translation box
+        const closeTransBtn = e.target.closest('[data-action="close-trans-box"]');
+        if (closeTransBtn) {
+            e.stopPropagation();
+            e.preventDefault();
+            const targetId = closeTransBtn.getAttribute('data-target');
+            const el = document.getElementById(targetId);
+            if (el) el.style.display = 'none';
+            return;
+        }
+
+        // Form speak input
+        const formSpeakBtn = e.target.closest('[data-action="form-speak-input"]');
+        if (formSpeakBtn) {
+            e.stopPropagation();
+            e.preventDefault();
+            const targetId = formSpeakBtn.getAttribute('data-target');
+            const inp = document.getElementById(targetId);
+            if (inp && typeof speakVietnamese === 'function') {
+                speakVietnamese(inp.value, formSpeakBtn);
+            }
+            return;
+        }
+
+        // Form translate input
+        const formTransBtn = e.target.closest('[data-action="form-trans-input"]');
+        if (formTransBtn) {
+            e.stopPropagation();
+            e.preventDefault();
+            const targetId = formTransBtn.getAttribute('data-target');
+            if (typeof handleFormTranslate === 'function') {
+                handleFormTranslate(targetId, formTransBtn);
+            }
+            return;
+        }
+
         // Open record single click
         const or = e.target.closest('[data-action="open-record"]');
         if (or && !e.target.closest('.row-checkbox')) {
@@ -324,6 +461,42 @@ function setupEventListeners() {
         const cdp = e.target.closest('[data-action="change-dash-page"]');
         if (cdp && !cdp.disabled) {
             if (changeAllDashPage) changeAllDashPage(cdp.getAttribute('data-tab-name'), parseInt(cdp.getAttribute('data-val')));
+            return;
+        }
+
+        // Toggle floating icon setting
+        const tfBtn = e.target.closest('[data-action="toggle-floating-setting"]');
+        if (tfBtn) {
+            e.stopPropagation();
+            if (typeof toggleFloatingIconSetting === 'function') toggleFloatingIconSetting();
+            return;
+        }
+
+        // Open TTS settings modal
+        const openTtsSettingsBtn = e.target.closest('[data-action="open-tts-settings"]');
+        if (openTtsSettingsBtn) {
+            e.stopPropagation();
+            if (typeof openTtsSettingsModal === 'function') openTtsSettingsModal();
+            return;
+        }
+
+        // Close TTS settings modal
+        const closeTtsBtn = e.target.closest('[data-action="close-tts-modal"]');
+        if (closeTtsBtn) {
+            e.stopPropagation();
+            if (typeof closeTtsSettingsModal === 'function') closeTtsSettingsModal();
+            return;
+        }
+
+        // TTS rate preset button
+        const ttsPreset = e.target.closest('[data-action="set-tts-rate-preset"]');
+        if (ttsPreset) {
+            e.stopPropagation();
+            const rate = parseFloat(ttsPreset.getAttribute('data-rate')) || 1.0;
+            const slider = document.getElementById('ttsRateSlider');
+            const valSpan = document.getElementById('ttsRateValue');
+            if (slider) slider.value = rate;
+            if (valSpan) valSpan.textContent = `${rate.toFixed(2)}x`;
             return;
         }
 
@@ -446,6 +619,15 @@ function setupEventListeners() {
         // Select all header checkbox
         if (e.target.id === 'selectAll' || e.target.id === 'selectAllCb') {
             if (typeof toggleSelectAll === 'function') toggleSelectAll(e.target);
+            return;
+        }
+
+        // Date group master checkbox
+        if (e.target.matches('.date-group-checkbox')) {
+            const gName = e.target.getAttribute('data-date-group');
+            if (typeof handleDateGroupCheckbox === 'function') {
+                handleDateGroupCheckbox(gName, e.target.checked);
+            }
             return;
         }
 

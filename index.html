@@ -15,7 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="lib/chart.js"></script>
 
-    <link rel="stylesheet" href="styles.css?v=20260627_22">
+    <link rel="stylesheet" href="styles.css?v=20260828_10">
 
     <!-- PWA -->
     <link rel="manifest" href="manifest.web.json">
@@ -64,11 +64,11 @@
                     <i data-lucide="layers" style="width:18px;height:18px;"></i>
                     <span>Tất cả</span>
                 </div>
-                <div class="tab" id="tab_LICH" data-tab="LICH" >
+                <div class="tab active" id="tab_LICH" data-tab="LICH" >
                     <i data-lucide="calendar" style="width:18px;height:18px;"></i>
                     <span>Lịch</span>
                 </div>
-                <div class="tab active" id="tab_GHI_CHU" data-tab="GHI_CHU" >
+                <div class="tab" id="tab_GHI_CHU" data-tab="GHI_CHU" >
                     <i data-lucide="book-open" style="width:18px;height:18px;"></i>
                     <span>Ghi chú</span>
                 </div>
@@ -156,6 +156,20 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                         </svg>
                         Load lại
+                    </button>
+
+                    <button id="globalToggleFloatingBtn" type="button" data-action="toggle-floating-setting"
+                        style="background:#ffffff; border:1px solid #cbd5e1; padding:7px 11px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.8rem; display:inline-flex; align-items:center; gap:5px; color:#334155;" 
+                        title="Bật/Tắt thanh icon nổi và Google Dịch khi bôi đen chữ trên web">
+                        <i data-lucide="sparkles" style="width:14px; height:14px; color:#10b981;"></i>
+                        <span>Icon web: BẬT</span>
+                    </button>
+
+                    <button id="ttsSettingsBtn" type="button" data-action="open-tts-settings"
+                        style="background:#ffffff; border:1px solid #cbd5e1; padding:7px 11px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.8rem; display:inline-flex; align-items:center; gap:5px; color:#334155;" 
+                        title="Tùy chỉnh Giọng đọc Tiếng Việt & Tốc độ phát âm">
+                        <i data-lucide="volume-2" style="width:14px; height:14px; color:#0284c7;"></i>
+                        <span>Giọng đọc</span>
                     </button>
 
                     <button id="viewToggleBtn" type="button" 
@@ -352,25 +366,71 @@
         </div>
     </div>
 
+    <!-- ===== TTS SETTINGS MODAL ===== -->
+    <div class="modal-mask" id="ttsSettingsModal" style="display:none; position:fixed; z-index:10000; left:0; top:0; width:100%; height:100%; background:rgba(15,23,42,0.6); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+        <div class="modal" style="background:#ffffff; border-radius:16px; width:480px; max-width:92%; padding:22px; box-shadow:0 20px 25px -5px rgba(0,0,0,0.2); margin:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; border-bottom:1px solid #e2e8f0; padding-bottom:10px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i data-lucide="volume-2" style="width:20px; height:20px; color:var(--primary);"></i>
+                    <h3 style="margin:0; font-size:1.05rem; font-weight:700; color:#1e293b;">Tùy chỉnh Giọng đọc & Tốc độ</h3>
+                </div>
+                <button type="button" data-action="close-tts-modal" style="background:transparent; border:none; font-size:1.2rem; cursor:pointer; color:#64748b;" title="Đóng">✕</button>
+            </div>
+
+            <!-- Voice Selection -->
+            <div style="margin-bottom:16px;">
+                <label style="display:block; font-size:0.83rem; font-weight:600; color:#475569; margin-bottom:6px;">🎙️ Chọn giọng đọc:</label>
+                <select id="ttsVoiceSelect" style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.85rem; outline:none; background:#f8fafc; color:#1e293b;">
+                </select>
+                <div style="font-size:0.75rem; color:#64748b; margin-top:4px;">* Tự động ưu tiên giọng Tiếng Việt tự nhiên sẵn có trên thiết bị của bạn.</div>
+            </div>
+
+            <!-- Reading Speed -->
+            <div style="margin-bottom:16px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                    <label style="font-size:0.83rem; font-weight:600; color:#475569;">⚡ Tốc độ đọc: <span id="ttsRateValue" style="color:var(--primary); font-weight:700; font-size:0.95rem;">1.00x</span></label>
+                </div>
+                <input type="range" id="ttsRateSlider" min="0.5" max="2.0" step="0.05" value="1.0" style="width:100%; accent-color:var(--primary); cursor:pointer;">
+                <div style="display:flex; gap:6px; margin-top:8px; flex-wrap:wrap;">
+                    <button type="button" class="tag-btn" data-action="set-tts-rate-preset" data-rate="0.75" style="padding:4px 9px; font-size:11px; border-radius:6px; cursor:pointer;">0.75x (Chậm)</button>
+                    <button type="button" class="tag-btn" data-action="set-tts-rate-preset" data-rate="1.0" style="padding:4px 9px; font-size:11px; border-radius:6px; font-weight:700; cursor:pointer;">1.0x (Chuẩn)</button>
+                    <button type="button" class="tag-btn" data-action="set-tts-rate-preset" data-rate="1.25" style="padding:4px 9px; font-size:11px; border-radius:6px; cursor:pointer;">1.25x (Nhanh vừa)</button>
+                    <button type="button" class="tag-btn" data-action="set-tts-rate-preset" data-rate="1.5" style="padding:4px 9px; font-size:11px; border-radius:6px; cursor:pointer;">1.5x (Nhanh)</button>
+                </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:18px; padding-top:14px; border-top:1px solid #e2e8f0;">
+                <button type="button" id="ttsTestBtn" style="background:#f1f5f9; border:1px solid #cbd5e1; padding:8px 14px; border-radius:8px; font-size:0.83rem; font-weight:600; cursor:pointer; display:inline-flex; align-items:center; gap:5px; color:#334155;">
+                    <i data-lucide="play" style="width:14px; height:14px; color:#0284c7;"></i> Nghe thử
+                </button>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" data-action="close-tts-modal" style="background:#f8fafc; border:1px solid #cbd5e1; padding:8px 14px; border-radius:8px; font-size:0.83rem; font-weight:600; cursor:pointer; color:#64748b;">Đóng</button>
+                    <button type="button" id="ttsSaveBtn" style="background:var(--primary); color:#ffffff; border:none; padding:8px 18px; border-radius:8px; font-size:0.83rem; font-weight:700; cursor:pointer;">Lưu cài đặt</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
-    <script src="core/globals.js"></script>
-    <script src="core/utils.js"></script>
-    <script src="core/api.js"></script>
-    <script src="core/ui.js"></script>
-    <script src="modules/chi_tieu.js"></script>
-    <script src="modules/cong_viec.js"></script>
-    <script src="modules/ghi_chu.js"></script>
-    <script src="modules/mk.js"></script>
-    <script src="modules/tat_ca.js"></script>
-    <script src="modules/thong_ke.js"></script>
-    <script src="modules/nhac_nho.js"></script>
-    <script src="core/init.js"></script>
-    <script src="quick_add.js?v=20260627_22"></script>
-    <script src="calendar.js?v=20260627_22"></script>
+    <script src="core/globals.js?v=20260828_11"></script>
+    <script src="core/utils.js?v=20260828_11"></script>
+    <script src="core/api.js?v=20260828_11"></script>
+    <script src="core/ui.js?v=20260828_11"></script>
+    <script src="modules/chi_tieu.js?v=20260828_11"></script>
+    <script src="modules/cong_viec.js?v=20260828_11"></script>
+    <script src="modules/ghi_chu.js?v=20260828_11"></script>
+    <script src="modules/mk.js?v=20260828_11"></script>
+    <script src="modules/tat_ca.js?v=20260828_11"></script>
+    <script src="modules/thong_ke.js?v=20260828_11"></script>
+    <script src="modules/nhac_nho.js?v=20260828_11"></script>
+    <script src="quick_add.js?v=20260828_11"></script>
+    <script src="calendar.js?v=20260828_11"></script>
+    <script src="core/init.js?v=20260828_11"></script>
 
     <!-- PWA: Service Worker + Notifications -->
-    <script src="core/pwa.js"></script>
-    <script src="core/events.js"></script>
+    <script src="core/pwa.js?v=20260828_11"></script>
+    <script src="core/events.js?v=20260828_11"></script>
 </body>
 
 </html>

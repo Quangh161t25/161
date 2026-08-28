@@ -250,12 +250,68 @@ async function saveRecordFromForm(e) {
         if (currentView === 'TAT_CA') {
             currentTab = '';
             await renderAllDashboard();
+        } else if (currentView === 'LICH') {
+            if (typeof renderCalendar === 'function') await renderCalendar();
         } else {
             await fetchData(true);
         }
     } catch (err) {
         console.error(err);
         alert("Lưu thất bại: " + err.message);
+        document.getElementById('loading').style.display = 'none';
+    }
+}
+
+
+async function deleteCurrentRecord() {
+    if (!editingSheetRow || !currentTab) return;
+    if (!confirm('Bạn có chắc chắn muốn xóa bản ghi này?')) return;
+
+    document.getElementById('loading').style.display = 'flex';
+    document.getElementById('loading').querySelector('p').innerText = 'Đang xóa...';
+
+    try {
+        const sheetId = await getSheetId(currentTab);
+        if (sheetId === null) throw new Error('Không tìm thấy sheet ID.');
+        const token = await getAccessToken();
+
+        const res = await fetch(
+            `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}:batchUpdate`,
+            {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    requests: [{
+                        deleteDimension: {
+                            range: {
+                                sheetId: sheetId,
+                                dimension: 'ROWS',
+                                startIndex: editingSheetRow - 1,
+                                endIndex: editingSheetRow
+                            }
+                        }
+                    }]
+                })
+            }
+        );
+
+        if (!res.ok) {
+            const err = await res.json().catch(() => ({}));
+            throw new Error(err.error?.message || 'Lỗi khi xóa');
+        }
+
+        closeProductForm();
+        window.cachedData[currentTab] = null;
+        if (currentView === 'LICH') {
+            if (typeof renderCalendar === 'function') await renderCalendar();
+        } else if (currentView === 'TAT_CA') {
+            await renderAllDashboard();
+        } else {
+            await fetchData(true);
+        }
+    } catch (e) {
+        alert('Xóa thất bại: ' + e.message);
+    } finally {
         document.getElementById('loading').style.display = 'none';
     }
 }

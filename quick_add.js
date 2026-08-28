@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  QUICK ADD DASHBOARD — Redesigned
 // ============================================================
 
@@ -122,7 +122,6 @@ function generateFormHTML(tabName) {
                     `<button type="button" class="plus30-btn" onclick="setNgayOutPlus30QuickAdd('${tabName}')">+30p</button>`);
                 break;
             case 'ngay_bat_dau':
-            
             case 'ngay_hoan_thanh': {
                 let defaultDate = '';
                 if (h === 'ngay_bat_dau') {
@@ -131,8 +130,6 @@ function generateFormHTML(tabName) {
                 } else if (h === 'ngay_hoan_thanh') {
                     const localNow = new Date();
                     localNow.setMinutes(localNow.getMinutes() + 30);
-                    defaultDate = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                }
                     defaultDate = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
                 }
                 inputHtml = _fieldDateTime(id, defaultDate);

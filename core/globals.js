@@ -1,6 +1,6 @@
 window.cachedData = window.cachedData || {};
 
-const CONFIG = {
+var CONFIG = window.CONFIG = {
     spreadsheetId: "16eWBBZOcFzrpoU66r3Ma3DM5ngX7JqMPtXxasggyS-s",
     serviceAccountEmail: "test-gia-ason@api-test-sheet-161.iam.gserviceaccount.com",
     privateKey: `-----BEGIN PRIVATE KEY-----
@@ -65,43 +65,63 @@ sR2Sh8e3h3Knd6j1tceRIFU=
 };
 
 
-let globalAccountBalances = {};
+var globalAccountBalances = {};
 
+var currentView = 'LICH', currentTab = 'CONG_VIEC', allData = [], accessToken = null, tokenExpiry = 0;
+window.calendarViewMode = 'month';
+window.currentCalendarDate = new Date();
+window.calendarFilter = 'ALL';
 
-let currentTab = 'GHI_CHU', allData = [], accessToken = null, tokenExpiry = 0;
+try {
+    const saved = localStorage.getItem('infosys_floating_icon_enabled');
+    window.isFloatingIconEnabled = saved !== null ? saved === 'true' : true;
+} catch (e) {
+    window.isFloatingIconEnabled = true;
+}
 
+if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get(['infosys_floating_icon_enabled'], (res) => {
+        if (res && res.infosys_floating_icon_enabled !== undefined) {
+            window.isFloatingIconEnabled = res.infosys_floating_icon_enabled !== false;
+            try {
+                localStorage.setItem('infosys_floating_icon_enabled', String(window.isFloatingIconEnabled));
+            } catch (e) {}
+            if (typeof updateGlobalFloatingButtonUI === 'function') {
+                updateGlobalFloatingButtonUI();
+            }
+            if (window.currentTab === 'BANG_TAM' && typeof renderTabFilters === 'function') {
+                renderTabFilters();
+            }
+        }
+    });
 
-let filteredData = [];
+    chrome.storage.onChanged.addListener((changes, area) => {
+        if (area === 'local' && changes.infosys_floating_icon_enabled !== undefined) {
+            window.isFloatingIconEnabled = changes.infosys_floating_icon_enabled.newValue !== false;
+            try {
+                localStorage.setItem('infosys_floating_icon_enabled', String(window.isFloatingIconEnabled));
+            } catch (e) {}
+            if (typeof updateGlobalFloatingButtonUI === 'function') {
+                updateGlobalFloatingButtonUI();
+            }
+            if (window.currentTab === 'BANG_TAM' && typeof renderTabFilters === 'function') {
+                renderTabFilters();
+            }
+        }
+    });
+}
 
-
-let editingSheetRow = null;
-
-
-let currentPage = 1;
-
-
-const rowsPerPage = 100;
-
-
-let activePhanLoaiFilter = [];
-
-
-let activeExpenseFilters = {};
-
-
-let activeTaskFilters = {};
-
-
-let mapInstance = null, mapMarker = null;
-
-
-let currentSortCol = null;
-
-
-let currentSortAsc = true;
-
-
-let taskViewMode = 'kanban'; // 'table' or 'kanban'
+var filteredData = [];
+var editingSheetRow = null;
+var currentPage = 1;
+var rowsPerPage = 100;
+var activePhanLoaiFilter = [];
+var activeExpenseFilters = {};
+var activeTaskFilters = {};
+var mapInstance = null, mapMarker = null;
+var currentSortCol = null;
+var currentSortAsc = true;
+var taskViewMode = 'kanban'; // 'table' or 'kanban'
 
 function toggleTaskView() {
     taskViewMode = taskViewMode === 'table' ? 'kanban' : 'table';
@@ -114,21 +134,11 @@ function toggleTaskView() {
 }
 
 
-let globalSearchTimeout = null;
-
-
-let allDashPages = { 'GHI_CHU': 1, 'CHI_TIEU': 1, 'HOC_HOI': 1 };
-
-
-const ALL_DASH_ROWS_PER_PAGE = 100;
-
-
-let allDashResults = [];
-
-
-let expenseChartInstance = null;
-
-
-let taskChartInstance = null;
+var globalSearchTimeout = null;
+var allDashPages = { 'GHI_CHU': 1, 'CHI_TIEU': 1, 'HOC_HOI': 1 };
+var ALL_DASH_ROWS_PER_PAGE = 100;
+var allDashResults = [];
+var expenseChartInstance = null;
+var taskChartInstance = null;
 
 

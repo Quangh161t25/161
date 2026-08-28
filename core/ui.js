@@ -83,10 +83,18 @@ async function switchTab(tabName) {
         
         if (currentView === 'THEM') {
             renderQuickAddForms();
+            return;
         } else if (currentView === 'TAT_CA') {
             renderAllDashboard();
+            return;
         } else if (currentView === 'THONG_KE') {
             renderAnalytics();
+            return;
+        } else if (currentView === 'LICH') {
+            if (typeof renderCalendar === 'function') {
+                await renderCalendar();
+            }
+            return;
         }
     } else {
         if(tableWrap) tableWrap.style.display = 'block';
@@ -103,7 +111,13 @@ async function switchTab(tabName) {
 
 
 async function reloadCurrentTab() {
-    await fetchData(true);
+    if (currentView === 'LICH') {
+        const calTabs = ['GHI_CHU', 'CHI_TIEU', 'HOC_HOI', 'CONG_VIEC', 'DSNV'];
+        calTabs.forEach(t => { if (window.cachedData) window.cachedData[t] = null; });
+        if (typeof renderCalendar === 'function') await renderCalendar();
+    } else {
+        await fetchData(true);
+    }
 }
 
 
@@ -268,24 +282,38 @@ function renderTable() {
             const rowJson = JSON.stringify(row).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
             
             let groupHeaderHtml = '';
+            let dateVal = '';
             if (currentTab === 'BANG_TAM') {
-                const dateVal = String(row[1] || '').trim().split(' ')[0] || 'Chưa có ngày';
+                dateVal = String(row[1] || '').trim().split(' ')[0] || 'Chưa có ngày';
                 if (dateVal !== lastDateGroup) {
                     lastDateGroup = dateVal;
+                    const groupRows = pageData.filter(r => (String(r[1] || '').trim().split(' ')[0] || 'Chưa có ngày') === dateVal);
+                    const groupCount = groupRows.length;
+                    const safeDateGroup = dateVal.replace(/"/g, "&quot;");
                     groupHeaderHtml = `
-                    <tr class="date-group-row" style="background: #f1f5f9; border-top: 2px solid #cbd5e1; border-bottom: 1px solid #cbd5e1;">
-                        <td colspan="100%" style="padding: 8px 16px; font-weight: 700; color: #1e293b; font-size: 0.88rem;">
-                            <div style="display:inline-flex; align-items:center; gap:8px;">
-                                <i data-lucide="calendar" style="width:15px; height:15px; color:var(--primary);"></i>
-                                <span>Ngày: ${dateVal}</span>
+                    <tr class="date-group-row" style="background: #f8fafc; border-top: 2px solid #cbd5e1; border-bottom: 1px solid #cbd5e1;">
+                        <td colspan="100%" style="padding: 8px 14px; font-weight: 700; color: #1e293b; font-size: 0.88rem;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; flex-wrap:wrap; gap:8px;">
+                                <label style="display:inline-flex; align-items:center; gap:8px; cursor:pointer; margin:0; user-select:none;">
+                                    <input type="checkbox" class="date-group-checkbox" data-date-group="${safeDateGroup}" style="width:16px; height:16px; cursor:pointer; accent-color:var(--primary);" title="Chọn tất cả mục ngày ${safeDateGroup}">
+                                    <i data-lucide="calendar" style="width:15px; height:15px; color:var(--primary);"></i>
+                                    <span>Ngày: ${dateVal}</span>
+                                    <span style="font-size:0.75rem; background:#e2e8f0; color:#475569; padding:2px 8px; border-radius:10px; font-weight:600;">${groupCount} mục</span>
+                                </label>
+                                <button type="button" class="group-select-btn" data-action="toggle-date-group" data-date-group="${safeDateGroup}" style="background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; padding:3px 10px; font-size:0.75rem; font-weight:600; color:var(--primary); cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:all 0.15s;" title="Bấm để chọn hoặc bỏ chọn toàn bộ mục ngày ${safeDateGroup}">
+                                    <i data-lucide="check-square" style="width:13px; height:13px;"></i>
+                                    <span>Chọn tất cả nhóm</span>
+                                </button>
                             </div>
                         </td>
                     </tr>`;
                 }
             }
 
-            return groupHeaderHtml + `<tr data-action="open-record-dbl" data-row="${sheetRow}">
-                <td style="width: 36px; min-width: 36px; max-width: 36px; text-align: center; padding: 10px 4px;"><input type="checkbox" class="row-checkbox" data-index="${sheetRow}"></td>
+            const dateGroupAttr = dateVal ? `data-date-group="${dateVal.replace(/"/g, "&quot;")}"` : '';
+
+            return groupHeaderHtml + `<tr data-action="open-record-dbl" data-row="${sheetRow}" ${dateGroupAttr}>
+                <td style="width: 36px; min-width: 36px; max-width: 36px; text-align: center; padding: 10px 4px;"><input type="checkbox" class="row-checkbox" ${dateGroupAttr} data-index="${sheetRow}"></td>
                 ${tabConfig.headers.map((h, i) => {
                 if (i === 0 || hiddenCols.includes(h)) return '';
 
@@ -372,14 +400,21 @@ function renderTable() {
                             const strVal = String(cellVal).trim();
                             const href = (strVal.startsWith('http://') || strVal.startsWith('https://')) ? strVal : (strVal.includes('.') ? `https://${strVal}` : strVal);
                             const isUrl = strVal.startsWith('http://') || strVal.startsWith('https://') || strVal.includes('.');
+                            const escapedVal = strVal.replace(/'/g, "&#39;").replace(/"/g, "&quot;");
                             if (isUrl) {
-                                cellVal = `<a href="${href}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" style="color:var(--primary); text-decoration:underline; font-weight:500; font-size:0.85rem; word-break:break-all; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;" title="${strVal}">${strVal}</a>`;
+                                cellVal = `<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
+                                    <a href="${href}" target="_blank" rel="noopener noreferrer" onclick="event.stopPropagation();" style="color:var(--primary); text-decoration:underline; font-weight:500; font-size:0.85rem; word-break:break-all; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;" title="${strVal}">${strVal}</a>
+                                    <button type="button" data-action="copy-to-clipboard" data-value="${escapedVal}" style="background:transparent; border:none; cursor:pointer; color:#64748b; padding:2px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:4px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'" title="Sao chép link">
+                                        <i data-lucide="copy" style="width:13px; height:13px;"></i>
+                                    </button>
+                                </div>`;
                             } else {
                                 cellVal = `<div class="line-clamp-2" title="${strVal}">${strVal}</div>`;
                             }
                         } else {
                             cellVal = '';
                         }
+                        return `<td ${tdStyle}>${cellVal}</td>`;
                     } else if (h === 'anh' || h === 'hinh_anh') {
                         tdStyle = 'style="width: 75px; text-align: center; white-space: nowrap;"';
                         if (cellVal && cellVal.startsWith('http')) {
@@ -387,6 +422,7 @@ function renderTable() {
                         } else {
                             cellVal = '';
                         }
+                        return `<td ${tdStyle}>${cellVal}</td>`;
                     } else if (h === 'tag') {
                         tdStyle = 'style="width: 110px; white-space: nowrap;"';
                     } else if (h === 'tieu_de') {
@@ -444,12 +480,22 @@ function renderTable() {
                         displayVal = displayVal.replace(/(^|\s)(https?:\/\/\S+\.(?:png|jpg|jpeg|gif|webp))(\s|$)/ig, '$1<br><img src="$2" style="max-width:100%; max-height:200px; border-radius:4px; margin-top:8px; object-fit:cover;"><br>$3');
                         displayVal = displayVal.replace(/\n/g, '<br>');
 
-                        cellVal = `<div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
+                        cellVal = `
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:6px;">
                             <div class="line-clamp-4" style="flex-grow:1; display:-webkit-box; -webkit-line-clamp:4; -webkit-box-orient:vertical; overflow:hidden; text-overflow:ellipsis; word-break:break-word; max-height:5.6em; line-height:1.4;">${displayVal}</div>
-                            <button type="button" data-action="copy-to-clipboard" data-value="${escapedVal}" style="background:transparent; border:none; cursor:pointer; color:#64748b; padding:3px; flex-shrink:0; display:flex; align-items:center; justify-content:center; border-radius:4px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'" title="Sao chép">
-                                <i data-lucide="copy" style="width:13px; height:13px;"></i>
-                            </button>
-                        </div>`;
+                            <div style="display:flex; align-items:center; gap:2px; flex-shrink:0;">
+                                <button type="button" class="btn-tts" data-action="speak-text" data-value="${escapedVal}" style="background:transparent; border:none; cursor:pointer; color:#0284c7; padding:3px; display:flex; align-items:center; justify-content:center; border-radius:4px;" onmouseover="this.style.background='#f0f9ff'" onmouseout="this.style.background='transparent'" title="Đọc tiếng Việt">
+                                    <i data-lucide="volume-2" style="width:13px; height:13px;"></i>
+                                </button>
+                                <button type="button" class="btn-trans" data-action="translate-bangtam" data-row="${sheetRow}" data-value="${escapedVal}" style="background:transparent; border:none; cursor:pointer; color:#7c3aed; padding:3px; display:flex; align-items:center; justify-content:center; border-radius:4px;" onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background='transparent'" title="Dịch sang tiếng Việt">
+                                    <i data-lucide="languages" style="width:13px; height:13px;"></i>
+                                </button>
+                                <button type="button" data-action="copy-to-clipboard" data-value="${escapedVal}" style="background:transparent; border:none; cursor:pointer; color:#64748b; padding:3px; display:flex; align-items:center; justify-content:center; border-radius:4px;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'" title="Sao chép">
+                                    <i data-lucide="copy" style="width:13px; height:13px;"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="trans_box_${sheetRow}" class="trans-result-card" style="display:none; margin-top:6px; padding:6px 10px; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:6px; font-size:0.83rem; color:#4c1d95; line-height:1.45;"></div>`;
                         return `<td ${tdStyle}>${cellVal}</td>`;
                     }
                 } else if (currentTab === 'DSNV') {
@@ -483,7 +529,7 @@ function renderTable() {
                     }
                 }
 
-                if (h === 'link' && cellVal) {
+                if (h === 'link' && cellVal && !String(cellVal).includes('<a ')) {
                     const strVal = String(cellVal).trim();
                     const href = (strVal.startsWith('http://') || strVal.startsWith('https://')) ? strVal : (strVal.includes('.') ? `https://${strVal}` : strVal);
                     if (strVal.startsWith('http://') || strVal.startsWith('https://') || strVal.includes('.')) {
@@ -822,6 +868,7 @@ function renderTabFilters() {
         const tabConfig = CONFIG.tabs[currentTab];
         const colName = currentTab === 'DSNV' ? 'hashtag' : 'tag';
         const colIndex = tabConfig.headers.indexOf(colName);
+        let tagsHtml = '';
         if (colIndex !== -1) {
             const allTags = allData.map(row => row[colIndex]).filter(v => v && typeof v === 'string' && v.trim() !== '').flatMap(v => v.split(',').map(s => s.trim()));
             const existingVals = new Set(allTags);
@@ -837,12 +884,69 @@ function renderTabFilters() {
                 btnHtml += `<button class="tag-btn ${isActive ? 'active' : ''}" onclick="setPhanLoaiFilter('${v.replace(/'/g, "\\'")}')" style="padding:4px 8px; font-size:12px; border-radius:12px; ${style}">${v}</button>`;
             });
             btnHtml += `</div>`;
-            container.innerHTML = `<div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:10px;">${btnHtml}</div>`;
+            tagsHtml = btnHtml;
         }
+
+        let extraControlsHtml = '';
+        if (currentTab === 'BANG_TAM') {
+            const isFloatingEnabled = window.isFloatingIconEnabled !== false;
+            extraControlsHtml = `
+                <div style="display:inline-flex; align-items:center; gap:8px; margin-left:auto; background:#ffffff; border:1px solid #cbd5e1; padding:4px 10px; border-radius:10px; box-shadow:0 1px 2px rgba(0,0,0,0.04);">
+                    <span style="font-size:12px; font-weight:600; color:#334155; display:inline-flex; align-items:center; gap:5px;">
+                        <i data-lucide="sparkles" style="width:14px; height:14px; color:var(--primary);"></i>
+                        <span>Icon nổi web:</span>
+                    </span>
+                    <button type="button" class="tag-btn" data-action="toggle-floating-setting" style="padding:3px 10px; font-size:11px; font-weight:700; border-radius:12px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; transition:all 0.2s; ${isFloatingEnabled ? 'background:#10b981; color:#ffffff; border:1px solid #059669;' : 'background:#f1f5f9; color:#64748b; border:1px solid #cbd5e1;'}" title="Bật hoặc Tắt icon nổi khi bôi đen văn bản trên trang web">
+                        <i data-lucide="${isFloatingEnabled ? 'check-circle-2' : 'circle-off'}" style="width:12px; height:12px;"></i>
+                        <span>${isFloatingEnabled ? 'Đang BẬT' : 'Đang TẮT'}</span>
+                    </button>
+                </div>
+            `;
+        }
+
+        container.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; width:100%;">${tagsHtml}${extraControlsHtml}</div>`;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     } else {
         container.innerHTML = '';
     }
 }
+
+function updateGlobalFloatingButtonUI() {
+    const isEnabled = window.isFloatingIconEnabled !== false;
+    const btn = document.getElementById('globalToggleFloatingBtn');
+    if (btn) {
+        btn.innerHTML = isEnabled 
+            ? `<i data-lucide="sparkles" style="width:14px; height:14px; color:#10b981;"></i> <span style="color:#059669; font-weight:700;">Icon web: BẬT</span>` 
+            : `<i data-lucide="circle-off" style="width:14px; height:14px; color:#64748b;"></i> <span style="color:#64748b; font-weight:700;">Icon web: TẮT</span>`;
+        btn.style.borderColor = isEnabled ? '#a7f3d0' : '#cbd5e1';
+        btn.style.background = isEnabled ? '#ecfdf5' : '#f8fafc';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+}
+
+function toggleFloatingIconSetting() {
+    const current = window.isFloatingIconEnabled !== false;
+    const next = !current;
+    window.isFloatingIconEnabled = next;
+    try {
+        localStorage.setItem('infosys_floating_icon_enabled', String(next));
+    } catch (e) {}
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+        chrome.storage.local.set({ infosys_floating_icon_enabled: next });
+    }
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        chrome.runtime.sendMessage({ action: 'TOGGLE_FLOATING_ICON', enabled: next }).catch(() => {});
+    }
+    updateGlobalFloatingButtonUI();
+    if (typeof renderTabFilters === 'function') {
+        renderTabFilters();
+    }
+    if (typeof showInfoToast === 'function') {
+        showInfoToast(next ? 'Đã BẬT icon nổi trên web' : 'Đã TẮT icon nổi trên web', next ? 'success' : 'info');
+    }
+}
+window.toggleFloatingIconSetting = toggleFloatingIconSetting;
+window.updateGlobalFloatingButtonUI = updateGlobalFloatingButtonUI;
 
 
 function quickFilterDate(type) {
@@ -908,6 +1012,29 @@ function handleRowCheckbox() {
     updateBatchButtons();
 }
 
+function handleDateGroupCheckbox(dateGroup, isChecked) {
+    const groupCheckboxes = document.querySelectorAll(`.row-checkbox[data-date-group="${dateGroup}"]`);
+    groupCheckboxes.forEach(cb => { cb.checked = isChecked; });
+    updateBatchButtons();
+}
+
+function updateDateGroupCheckboxes() {
+    const groupCheckboxes = document.querySelectorAll('.date-group-checkbox');
+    groupCheckboxes.forEach(gCb => {
+        const gName = gCb.getAttribute('data-date-group');
+        const rowCbs = document.querySelectorAll(`.row-checkbox[data-date-group="${gName}"]`);
+        const checkedCount = document.querySelectorAll(`.row-checkbox[data-date-group="${gName}"]:checked`).length;
+        if (rowCbs.length === 0) return;
+        gCb.checked = checkedCount === rowCbs.length;
+        gCb.indeterminate = checkedCount > 0 && checkedCount < rowCbs.length;
+
+        const gBtnSpan = document.querySelector(`button[data-action="toggle-date-group"][data-date-group="${gName}"] span`);
+        if (gBtnSpan) {
+            gBtnSpan.textContent = (checkedCount === rowCbs.length && rowCbs.length > 0) ? 'Bỏ chọn nhóm' : 'Chọn tất cả nhóm';
+        }
+    });
+}
+
 
 function updateBatchButtons() {
     const totalCheckboxes = document.querySelectorAll('.row-checkbox');
@@ -922,6 +1049,8 @@ function updateBatchButtons() {
         selectAll.checked = totalCheckboxes.length > 0 && checkedCount === totalCheckboxes.length;
         selectAll.indeterminate = checkedCount > 0 && checkedCount < totalCheckboxes.length;
     }
+
+    updateDateGroupCheckboxes();
     
     if (checkedCount > 0) {
         if (editBtn) editBtn.style.display = currentTab === 'GHI_CHU' ? 'inline-block' : 'none';
@@ -933,6 +1062,92 @@ function updateBatchButtons() {
         if (editGioiTinhBtn) editGioiTinhBtn.style.display = 'none';
         if (editHashtagBtn) editHashtagBtn.style.display = 'none';
         if (delBtn) delBtn.style.display = 'none';
+    }
+}
+
+
+async function handleTranslateBangTam(sheetRow, text, btnEl) {
+    const box = document.getElementById(`trans_box_${sheetRow}`);
+    if (!box) return;
+
+    if (box.style.display !== 'none' && box._currentText === text) {
+        box.style.display = 'none';
+        return;
+    }
+
+    if (box._currentText === text && box.innerHTML.length > 0) {
+        box.style.display = 'block';
+        return;
+    }
+
+    const origBtnHtml = btnEl ? btnEl.innerHTML : '';
+    if (btnEl) {
+        btnEl.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:13px; height:13px; color:#7c3aed;"></i>';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    box.style.display = 'block';
+    box.innerHTML = `<div style="display:flex; align-items:center; gap:6px; color:#1a73e8; font-size:0.8rem;"><i data-lucide="loader-2" class="spin" style="width:13px; height:13px;"></i> Đang dịch Google sang tiếng Việt...</div>`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    try {
+        const trans = await translateText(text, 'vi');
+        box._currentText = text;
+        const escapedTrans = trans.replace(/'/g, "&#39;").replace(/"/g, "&quot;").replace(/\n/g, "\\n").replace(/\r/g, "");
+        box.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid #e2e8f0; font-weight:700; font-size:0.75rem; color:#1a73e8;">
+                <span style="display:inline-flex; align-items:center; gap:5px;">
+                    <i data-lucide="languages" style="width:13px; height:13px; color:#1a73e8;"></i>
+                    <span>Google Dịch ➔ Tiếng Việt</span>
+                </span>
+                <div style="display:inline-flex; align-items:center; gap:4px;">
+                    <button type="button" data-action="speak-text" data-value="${escapedTrans}" style="background:#e8f0fe; border:1px solid #c2e7ff; border-radius:4px; padding:2px 7px; font-size:0.7rem; font-weight:600; color:#1967d2; cursor:pointer; display:inline-flex; align-items:center; gap:3px;" title="Đọc bản dịch"><i data-lucide="volume-2" style="width:11px; height:11px;"></i> Đọc</button>
+                    <button type="button" data-action="copy-to-clipboard" data-value="${escapedTrans}" style="background:#f1f5f9; border:1px solid #cbd5e1; border-radius:4px; padding:2px 7px; font-size:0.7rem; font-weight:600; color:#475569; cursor:pointer; display:inline-flex; align-items:center; gap:3px;" title="Sao chép bản dịch"><i data-lucide="copy" style="width:11px; height:11px;"></i> Chép</button>
+                    <button type="button" data-action="close-trans-box" data-target="trans_box_${sheetRow}" style="background:transparent; border:none; padding:2px 5px; font-size:0.8rem; color:#64748b; cursor:pointer;" title="Đóng">✕</button>
+                </div>
+            </div>
+            <div style="white-space:pre-wrap; word-break:break-word; font-size:0.88rem; color:#1e293b; font-weight:500; line-height:1.5;">${trans}</div>
+        `;
+    } catch (err) {
+        box.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; color:#dc2626;">
+                <span>⚠️ ${err.message || 'Lỗi dịch thuật'}</span>
+                <button type="button" data-action="close-trans-box" data-target="trans_box_${sheetRow}" style="background:transparent; border:none; padding:2px 4px; color:#dc2626; cursor:pointer;">✕</button>
+            </div>
+        `;
+    } finally {
+        if (btnEl) {
+            btnEl.innerHTML = origBtnHtml;
+        }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+}
+
+async function handleFormTranslate(targetInputId, btnEl) {
+    const inp = document.getElementById(targetInputId);
+    if (!inp || !inp.value || inp.value.trim().length === 0) return;
+
+    const origBtnHtml = btnEl ? btnEl.innerHTML : '';
+    if (btnEl) {
+        btnEl.innerHTML = '<i data-lucide="loader-2" class="spin" style="width:12px; height:12px; color:#7c3aed;"></i> Đang dịch...';
+        btnEl.disabled = true;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    try {
+        const trans = await translateText(inp.value, 'vi');
+        if (trans) {
+            inp.value = inp.value.trim() + '\n\n--- [Bản dịch Tiếng Việt] ---\n' + trans;
+            inp.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+    } catch (err) {
+        alert(err.message || 'Không thể dịch');
+    } finally {
+        if (btnEl) {
+            btnEl.innerHTML = origBtnHtml;
+            btnEl.disabled = false;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
     }
 }
 
@@ -997,7 +1212,7 @@ function closeBatchEditModal() {
     document.getElementById('batchEditModal').style.display = 'none';
 }
 
-function openRecordForm(rowData = null, sheetRow = null) {
+function openRecordForm(rowData = null, sheetRow = null, defaultDateStr = null) {
     if (!Array.isArray(rowData)) {
         rowData = null;
         sheetRow = null;
@@ -1009,10 +1224,15 @@ function openRecordForm(rowData = null, sheetRow = null) {
     const now = new Date();
     const offset = now.getTimezoneOffset() * 60000;
     const formattedNow = (new Date(Date.now() - offset)).toISOString().slice(0, 16);
+    const defaultDay = defaultDateStr ? defaultDateStr.slice(0, 10) : formattedNow.slice(0, 10);
+    const defaultDateTime = defaultDateStr ? (defaultDateStr.includes('T') ? defaultDateStr : defaultDateStr + 'T08:00') : formattedNow;
 
     editingSheetRow = sheetRow;
     const isEdit = rowData && sheetRow;
     document.getElementById('productModalTitle').innerText = isEdit ? 'Chỉnh sửa' : 'Thêm mới';
+
+    const delBtn = document.getElementById('deleteRecordBtn');
+    if (delBtn) delBtn.style.display = isEdit ? 'inline-flex' : 'none';
 
     fieldsDiv.innerHTML = tabConfig.headers.map((h, idx) => {
         let val = isEdit ? (rowData[idx] || '') : '';
@@ -1043,28 +1263,32 @@ function openRecordForm(rowData = null, sheetRow = null) {
                 <button type="button" class="tag-btn" data-action="get-location" data-input="input_" style="white-space:nowrap; background:#e0f2fe; color:#0369a1; border-color:#bae6fd;">Lấy vị trí</button>
             </div>
             <div id="mapPreview" style="width:100%; height:250px; margin-top:8px; border-radius:8px; border:1px solid #ccc;"></div>`;
-        } else if (h === 'ngay') {
+        } else if (h === 'ngay' || h === 'ngay_sinh') {
             inputHtml = `
             <div style="display:flex; gap:5px;">
                 <button type="button" class="tag-btn" data-action="adjust-date" data-input="input_${h}" data-val="-1" style="padding:4px 8px;">-</button>
-                <input type="date" id="input_${h}" name="${h}" value="${val || formattedNow.slice(0, 10)}" style="flex-grow:1;">
+                <input type="date" id="input_${h}" name="${h}" value="${val || defaultDay}" style="flex-grow:1;">
                 <button type="button" class="tag-btn" data-action="adjust-date" data-input="input_${h}" data-val="1" style="padding:4px 8px;">+</button>
             </div>`;
-        } else if (h === 'ngay_in') {
+        } else if (h === 'ngay_in' || h === 'ngay_bat_dau' || h === 'ngay_gio') {
             inputHtml = `
             <div style="display:flex; gap:5px;">
                 <button type="button" class="tag-btn" data-action="adjust-date" data-input="input_${h}" data-val="-1" style="padding:4px 8px;">-</button>
-                <input type="datetime-local" id="input_${h}" name="${h}" value="${val || formattedNow}" style="flex-grow:1;">
+                <input type="datetime-local" id="input_${h}" name="${h}" value="${val || defaultDateTime}" style="flex-grow:1;">
                 <button type="button" class="tag-btn" data-action="adjust-date" data-input="input_${h}" data-val="1" style="padding:4px 8px;">+</button>
             </div>`;
-        } else if (h === 'ngay_out') {
+        } else if (h === 'ngay_out' || h === 'ngay_hoan_thanh') {
             let outVal = val;
             if (!isEdit && !val) {
-                const inDate = new Date();
-                inDate.setMinutes(inDate.getMinutes() + 30);
-                outVal = new Date(inDate.getTime() - offset).toISOString().slice(0, 16);
+                if (defaultDateStr) {
+                    outVal = defaultDay + 'T08:30';
+                } else {
+                    const inDate = new Date();
+                    inDate.setMinutes(inDate.getMinutes() + 30);
+                    outVal = new Date(inDate.getTime() - offset).toISOString().slice(0, 16);
+                }
             } else {
-                outVal = val || formattedNow;
+                outVal = val || defaultDateTime;
             }
             inputHtml = `
             <div style="display:flex; gap:5px;">
@@ -1115,7 +1339,13 @@ function openRecordForm(rowData = null, sheetRow = null) {
                         `</div>`;
                 }
             }
-            inputHtml = `<textarea id="input_${h}" name="${h}" placeholder="Nhập ${h}..." rows="5" style="min-height:140px; line-height:1.6; resize:vertical; font-family:inherit; width:100%; white-space:pre-wrap; word-break:break-word; overflow-wrap:break-word;">${val}</textarea><div id="preview_${h}">${previewImages}</div>`;
+            inputHtml = `
+            <div style="display:flex; justify-content:flex-end; gap:6px; margin-bottom:4px;">
+                <button type="button" class="tag-btn" data-action="form-speak-input" data-target="input_${h}" style="padding:2px 8px; font-size:0.75rem; background:#f0f9ff; color:#0369a1; border-color:#bae6fd; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="Đọc tiếng Việt"><i data-lucide="volume-2" style="width:12px; height:12px;"></i> Đọc</button>
+                <button type="button" class="tag-btn" data-action="form-trans-input" data-target="input_${h}" style="padding:2px 8px; font-size:0.75rem; background:#f5f3ff; color:#6d28d9; border-color:#ddd6fe; display:inline-flex; align-items:center; gap:4px; cursor:pointer;" title="Dịch sang tiếng Việt"><i data-lucide="languages" style="width:12px; height:12px;"></i> Dịch</button>
+            </div>
+            <textarea id="input_${h}" name="${h}" placeholder="Nhập ${h}..." rows="5" style="min-height:140px; line-height:1.6; resize:vertical; font-family:inherit; width:100%; white-space:pre-wrap; word-break:break-word; overflow-wrap:break-word;">${val}</textarea>
+            <div id="preview_${h}">${previewImages}</div>`;
         } else if (h === 'loai_giao_dich') {
             const options = ['Chi', 'Thu', 'Chuyển khoản'];
             const valOrDefault = val || 'Chi';
@@ -1345,14 +1575,14 @@ function closeProductForm() {
 }
 
 
-function openRecordFormFromDash(tabName, rowData = null, sheetRow = null) {
+function openRecordFormFromDash(tabName, rowData = null, sheetRow = null, defaultDateStr = null) {
     currentTab = tabName;
     if (window.cachedData && window.cachedData[tabName]) {
         allData = window.cachedData[tabName];
     } else {
         allData = [];
     }
-    openRecordForm(rowData, sheetRow);
+    openRecordForm(rowData, sheetRow, defaultDateStr);
 }
 
 
@@ -1370,6 +1600,96 @@ function setPhanLoaiFilter(tag) {
     renderTabFilters();
     filterTable();
 }
+
+function populateTtsVoices() {
+    const select = document.getElementById('ttsVoiceSelect');
+    if (!select || typeof window === 'undefined' || !window.speechSynthesis) return;
+
+    const voices = window.speechSynthesis.getVoices() || [];
+    const currentVoiceURI = window.ttsConfig ? window.ttsConfig.voiceURI : '';
+
+    select.innerHTML = '<option value="">-- Mặc định (Tự động nhận diện Tiếng Việt) --</option>';
+
+    // Group Vietnamese voices first
+    const viVoices = voices.filter(v => v.lang && (v.lang.toLowerCase().includes('vi') || v.lang.toLowerCase().includes('vn')));
+    const otherVoices = voices.filter(v => !v.lang || (!v.lang.toLowerCase().includes('vi') && !v.lang.toLowerCase().includes('vn')));
+
+    if (viVoices.length > 0) {
+        const viGroup = document.createElement('optgroup');
+        viGroup.label = '🇻🇳 Giọng Tiếng Việt chuẩn';
+        viVoices.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.voiceURI || v.name;
+            opt.textContent = `${v.name} (${v.lang})`;
+            if ((v.voiceURI && v.voiceURI === currentVoiceURI) || v.name === currentVoiceURI) {
+                opt.selected = true;
+            }
+            viGroup.appendChild(opt);
+        });
+        select.appendChild(viGroup);
+    }
+
+    if (otherVoices.length > 0) {
+        const otherGroup = document.createElement('optgroup');
+        otherGroup.label = '🌐 Giọng hệ thống khác';
+        otherVoices.slice(0, 20).forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.voiceURI || v.name;
+            opt.textContent = `${v.name} (${v.lang})`;
+            if ((v.voiceURI && v.voiceURI === currentVoiceURI) || v.name === currentVoiceURI) {
+                opt.selected = true;
+            }
+            otherGroup.appendChild(opt);
+        });
+        select.appendChild(otherGroup);
+    }
+}
+
+function openTtsSettingsModal() {
+    let modal = document.getElementById('ttsSettingsModal');
+    if (!modal) return;
+
+    modal.style.display = 'flex';
+    populateTtsVoices();
+
+    const slider = document.getElementById('ttsRateSlider');
+    const valSpan = document.getElementById('ttsRateValue');
+    const currentRate = window.ttsConfig ? window.ttsConfig.rate : 1.0;
+
+    if (slider) slider.value = currentRate;
+    if (valSpan) valSpan.textContent = `${currentRate.toFixed(2)}x`;
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function closeTtsSettingsModal() {
+    const modal = document.getElementById('ttsSettingsModal');
+    if (modal) modal.style.display = 'none';
+    if (typeof stopSpeaking === 'function') stopSpeaking();
+}
+
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    window.speechSynthesis.onvoiceschanged = () => {
+        populateTtsVoices();
+    };
+}
+
+window.openRecordFormFromDash = openRecordFormFromDash;
+window.switchTab = switchTab;
+window.reloadCurrentTab = reloadCurrentTab;
+window.filterTable = filterTable;
+window.setPhanLoaiFilter = setPhanLoaiFilter;
+window.handleDateGroupCheckbox = handleDateGroupCheckbox;
+window.updateDateGroupCheckboxes = updateDateGroupCheckboxes;
+window.toggleSelectAll = toggleSelectAll;
+window.handleRowCheckbox = handleRowCheckbox;
+window.updateBatchButtons = updateBatchButtons;
+window.handleTranslateBangTam = handleTranslateBangTam;
+window.handleFormTranslate = handleFormTranslate;
+window.openTtsSettingsModal = openTtsSettingsModal;
+window.closeTtsSettingsModal = closeTtsSettingsModal;
+window.populateTtsVoices = populateTtsVoices;
+
 
 
 

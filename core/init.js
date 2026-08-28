@@ -11,7 +11,8 @@ document.addEventListener('click', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
     document.getElementById('loading').style.display = 'none';
-    switchTab(currentTab);
+    if (window.updateGlobalFloatingButtonUI) window.updateGlobalFloatingButtonUI();
+    switchTab('LICH');
     // Request Notification Permission
     if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {
         Notification.requestPermission();
