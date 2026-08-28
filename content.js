@@ -473,9 +473,11 @@
 
         (document.body || document.documentElement).appendChild(card);
 
-        // Prevent events inside card from bubbling and collapsing selection
+        // Prevent events inside card from bubbling and collapsing selection or triggering document listeners
         card.addEventListener('mousedown', (e) => e.stopPropagation());
         card.addEventListener('pointerdown', (e) => e.stopPropagation());
+        card.addEventListener('mouseup', (e) => e.stopPropagation());
+        card.addEventListener('click', (e) => e.stopPropagation());
 
         // 1. Dragging Logic
         const header = card.querySelector('#infosys-card-header');
@@ -733,9 +735,11 @@
 
         (document.body || document.documentElement).appendChild(bar);
 
-        // Prevent events inside bar from collapsing selection
+        // Prevent events inside bar from collapsing selection or bubbling to document
         bar.addEventListener('mousedown', (e) => e.stopPropagation());
         bar.addEventListener('pointerdown', (e) => e.stopPropagation());
+        bar.addEventListener('mouseup', (e) => e.stopPropagation());
+        bar.addEventListener('click', (e) => e.stopPropagation());
 
         bar.querySelector('#infosys-tb-trans').onclick = (e) => {
             e.stopPropagation();
@@ -770,6 +774,9 @@
 
     // Handle selection on web page
     function doShowSelectionToolbar() {
+        if (document.getElementById('infosys-translate-card')) {
+            return; // Never replace or dismiss translate card while it is open
+        }
         const sel = window.getSelection();
         if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
             hideFloatingToolbar();
@@ -794,6 +801,9 @@
     }
 
     function updateSelection() {
+        if (document.getElementById('infosys-translate-card')) {
+            return; // Translate card is active, do not overwrite with floating toolbar
+        }
         if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
             chrome.storage.local.get(['infosys_floating_icon_enabled'], (res) => {
                 if (res && res.infosys_floating_icon_enabled === false) {
@@ -813,7 +823,13 @@
         }
     }
 
-    function scheduleSelectionCheck() {
+    function scheduleSelectionCheck(e) {
+        if (e && e.target && e.target.closest && (e.target.closest('#infosys-floating-toolbar') || e.target.closest('#infosys-translate-card') || e.target.closest('#infosys-copy-toast'))) {
+            return;
+        }
+        if (document.getElementById('infosys-translate-card')) {
+            return; // Keep translate card open!
+        }
         clearTimeout(selectionTimeout);
         selectionTimeout = setTimeout(updateSelection, 60);
     }
@@ -823,22 +839,22 @@
     document.addEventListener('touchend', scheduleSelectionCheck, true);
     document.addEventListener('keyup', (e) => {
         if (e.key === 'Shift' || e.key.includes('Arrow') || (e.ctrlKey && e.key === 'a')) {
-            scheduleSelectionCheck();
+            scheduleSelectionCheck(e);
         }
     }, true);
 
     document.addEventListener('mousedown', (e) => {
         if (isCardPinned) return;
-        if (e.target && e.target.closest && (e.target.closest('#infosys-floating-toolbar') || e.target.closest('#infosys-translate-card'))) {
+        if (e.target && e.target.closest && (e.target.closest('#infosys-floating-toolbar') || e.target.closest('#infosys-translate-card') || e.target.closest('#infosys-copy-toast'))) {
             return;
         }
         setTimeout(() => {
             if (isCardPinned) return;
             const sel = window.getSelection();
-            if (!sel || sel.isCollapsed) {
+            if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
                 hideFloatingWidgets();
             }
-        }, 100);
+        }, 150);
     }, true);
 
     // Add keyframes CSS to document head
