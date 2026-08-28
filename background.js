@@ -321,8 +321,8 @@ async function handleTranslateApi(text, targetLang = 'vi') {
 if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message && message.action === 'AUTO_COPY_SAVE') {
-            const { text, url } = message.data || {};
-            saveToBangTam(text, url).then(success => {
+            const { text, url, tag } = message.data || {};
+            saveToBangTam(text, url, tag).then(success => {
                 sendResponse({ success });
             });
             return true; // Keep channel open for async response

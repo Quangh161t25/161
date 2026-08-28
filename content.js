@@ -1,13 +1,15 @@
 // ============================================================
 //  InfoSys Extension — Content Script
 //  - Icon Dịch Google & Thanh nổi khi bôi đen văn bản trên web
-//  - Khung xem bản dịch chuẩn Google Translate Popup
+//  - Khung xem bản dịch chuẩn Google Translate Popup (Kéo thả, Ghim, Đổi ngôn ngữ, Sửa bản dịch, Gắn tag)
 //  - Đọc Tiếng Việt (TTS) tùy chỉnh tốc độ & giọng đọc
 //  - Bật / Tắt tức thì từ Extension & Chuột phải
 // ============================================================
 
 (function() {
     let isFloatingEnabled = true;
+    let isCardPinned = false;
+    let currentTargetLang = 'vi';
     let lastCopiedText = '';
     let lastCopyTime = 0;
     let currentSelectedText = '';
@@ -22,14 +24,30 @@
         pitch: 1.0
     };
 
+    const SUPPORTED_LANGUAGES = [
+        { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },
+        { code: 'en', name: 'Tiếng Anh', flag: '🇬🇧' },
+        { code: 'zh-CN', name: 'Tiếng Trung', flag: '🇨🇳' },
+        { code: 'ja', name: 'Tiếng Nhật', flag: '🇯🇵' },
+        { code: 'ko', name: 'Tiếng Hàn', flag: '🇰🇷' },
+        { code: 'fr', name: 'Tiếng Pháp', flag: '🇫🇷' },
+        { code: 'de', name: 'Tiếng Đức', flag: '🇩🇪' },
+        { code: 'ru', name: 'Tiếng Nga', flag: '🇷🇺' },
+        { code: 'es', name: 'Tây Ban Nha', flag: '🇪🇸' },
+        { code: 'th', name: 'Tiếng Thái', flag: '🇹🇭' }
+    ];
+
+    const QUICK_TAGS = ['Từ vựng', 'Ghi chú', 'Quan trọng', 'Học hỏi', 'Công việc', 'Dịch thuật'];
+
     // Load initial settings from Extension storage
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.get(['infosys_floating_icon_enabled', 'infosys_tts_rate', 'infosys_tts_voice', 'infosys_tts_pitch'], (res) => {
+        chrome.storage.local.get(['infosys_floating_icon_enabled', 'infosys_tts_rate', 'infosys_tts_voice', 'infosys_tts_pitch', 'infosys_target_lang'], (res) => {
             if (res) {
                 if (res.infosys_floating_icon_enabled !== undefined) isFloatingEnabled = res.infosys_floating_icon_enabled !== false;
                 if (res.infosys_tts_rate !== undefined) ttsConfig.rate = parseFloat(res.infosys_tts_rate) || 1.0;
                 if (res.infosys_tts_voice !== undefined) ttsConfig.voiceURI = res.infosys_tts_voice || '';
                 if (res.infosys_tts_pitch !== undefined) ttsConfig.pitch = parseFloat(res.infosys_tts_pitch) || 1.0;
+                if (res.infosys_target_lang) currentTargetLang = res.infosys_target_lang;
             }
         });
 
@@ -42,6 +60,7 @@
                 if (changes.infosys_tts_rate) ttsConfig.rate = parseFloat(changes.infosys_tts_rate.newValue) || 1.0;
                 if (changes.infosys_tts_voice) ttsConfig.voiceURI = changes.infosys_tts_voice.newValue || '';
                 if (changes.infosys_tts_pitch) ttsConfig.pitch = parseFloat(changes.infosys_tts_pitch.newValue) || 1.0;
+                if (changes.infosys_target_lang) currentTargetLang = changes.infosys_target_lang.newValue || 'vi';
                 updateSpeedPillsUI();
             }
         });
@@ -81,13 +100,13 @@
                 const text = msg.text || window.getSelection().toString().trim();
                 if (text) {
                     const sel = window.getSelection();
-                    const rect = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0).getBoundingClientRect() : { left: window.innerWidth / 2 - 160, top: 120, bottom: 140, width: 200, height: 20 };
+                    const rect = (sel && sel.rangeCount > 0) ? sel.getRangeAt(0).getBoundingClientRect() : { left: window.innerWidth / 2 - 170, top: 120, bottom: 140, width: 200, height: 20 };
                     showGoogleTranslateCard(rect, text);
                 }
             } else if (msg && msg.action === 'TRIGGER_SPEAK') {
                 const text = msg.text || window.getSelection().toString().trim();
                 if (text) {
-                    speakVietnamese(text, null);
+                    speakInLang(text, 'vi', null);
                 }
             }
         });
@@ -212,7 +231,7 @@
         }
     }
 
-    function speakVietnamese(text, btnEl = null, customRate = null) {
+    function speakInLang(text, langCode = 'vi', btnEl = null, customRate = null) {
         if (!text || typeof text !== 'string' || text.trim().length === 0) return;
         const cleanText = text.trim();
 
@@ -242,24 +261,24 @@
             try {
                 window.speechSynthesis.cancel();
                 const utterance = new SpeechSynthesisUtterance(cleanText);
-                utterance.lang = 'vi-VN';
+                utterance.lang = langCode;
                 utterance.rate = Math.max(0.5, Math.min(2.0, rate));
                 utterance.pitch = Math.max(0.5, Math.min(1.5, ttsConfig.pitch || 1.0));
 
                 const voices = window.speechSynthesis.getVoices();
                 let selectedVoice = null;
-                if (ttsConfig.voiceURI) {
+                if (langCode === 'vi' && ttsConfig.voiceURI) {
                     selectedVoice = voices.find(v => v.voiceURI === ttsConfig.voiceURI || v.name === ttsConfig.voiceURI);
                 }
                 if (!selectedVoice) {
-                    selectedVoice = voices.find(v => v.lang && (v.lang.toLowerCase().includes('vi') || v.lang.toLowerCase().includes('vn')));
+                    selectedVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith(langCode.substring(0, 2).toLowerCase()));
                 }
                 if (selectedVoice) utterance.voice = selectedVoice;
 
                 utterance.onstart = onStart;
                 utterance.onend = onEnd;
                 utterance.onerror = () => {
-                    playAudioFallback(cleanText, onStart, onEnd, rate);
+                    playAudioFallback(cleanText, langCode, onStart, onEnd, rate);
                 };
 
                 window.speechSynthesis.speak(utterance);
@@ -267,53 +286,13 @@
             } catch (e) {}
         }
 
-        playAudioFallback(cleanText, onStart, onEnd, rate);
+        playAudioFallback(cleanText, langCode, onStart, onEnd, rate);
     }
 
-    function speakOriginal(text, btnEl = null) {
-        if (!text || typeof text !== 'string' || text.trim().length === 0) return;
-        const cleanText = text.trim();
-
-        if (currentSpeechBtn === btnEl && btnEl) {
-            stopSpeaking();
-            return;
-        }
-
-        stopSpeaking();
-
-        const onStart = () => {
-            if (btnEl) {
-                currentSpeechBtn = btnEl;
-                if (!btnEl._origHtml) btnEl._origHtml = btnEl.innerHTML;
-                btnEl.innerHTML = '⏹️';
-                btnEl.style.color = '#ef4444';
-            }
-        };
-
-        const onEnd = () => {
-            stopSpeaking();
-        };
-
-        const rate = ttsConfig.rate || 1.0;
-
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            try {
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(cleanText);
-                utterance.rate = Math.max(0.5, Math.min(2.0, rate));
-                utterance.onstart = onStart;
-                utterance.onend = onEnd;
-                utterance.onerror = onEnd;
-                window.speechSynthesis.speak(utterance);
-                return;
-            } catch (e) {}
-        }
-    }
-
-    function playAudioFallback(text, onStart, onEnd, customRate = null) {
+    function playAudioFallback(text, langCode, onStart, onEnd, customRate = null) {
         try {
             const shortText = text.length > 180 ? text.substring(0, 180) : text;
-            const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=${encodeURIComponent(shortText)}`;
+            const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${langCode}&client=tw-ob&q=${encodeURIComponent(shortText)}`;
             const audio = new Audio(audioUrl);
             currentSpeechAudio = audio;
             const rate = customRate !== null ? customRate : (ttsConfig.rate || 1.0);
@@ -328,13 +307,15 @@
     }
 
     // Save text to BANG_TAM
-    function doSaveToBangTam(text) {
+    function doSaveToBangTam(text, customTag = null) {
         if (!text || text.trim().length === 0) return;
         const trimmed = text.trim();
         lastCopiedText = trimmed;
         lastCopyTime = Date.now();
 
-        hideFloatingWidgets();
+        if (!isCardPinned) {
+            hideFloatingWidgets();
+        }
 
         try {
             chrome.runtime.sendMessage({
@@ -342,10 +323,11 @@
                 data: {
                     text: trimmed,
                     url: window.location.href,
-                    title: document.title || window.location.href
+                    title: document.title || window.location.href,
+                    tag: customTag
                 }
             }, () => {
-                showToast('Đã lưu vào Bảng tạm');
+                showToast(customTag ? `Đã lưu [${customTag}] vào Bảng tạm` : 'Đã lưu vào Bảng tạm');
             });
         } catch (e) {
             showToast('Đã lưu vào Bảng tạm');
@@ -359,6 +341,14 @@
     }
 
     function hideTranslateCard() {
+        if (isCardPinned) return;
+        stopSpeaking();
+        const tc = document.getElementById('infosys-translate-card');
+        if (tc) tc.remove();
+    }
+
+    function forceHideTranslateCard() {
+        isCardPinned = false;
         stopSpeaking();
         const tc = document.getElementById('infosys-translate-card');
         if (tc) tc.remove();
@@ -369,21 +359,23 @@
         hideTranslateCard();
     }
 
-    // Google Translate Popup Card
+    // Google Translate Popup Card (Full-featured: Drag, Pin, Lang Select, Edit, Tagging)
     async function showGoogleTranslateCard(rect, text) {
-        hideFloatingWidgets();
+        hideFloatingToolbar();
+        const existingCard = document.getElementById('infosys-translate-card');
+        if (existingCard) existingCard.remove();
 
         const card = document.createElement('div');
         card.id = 'infosys-translate-card';
         card.style.cssText = `
             position: fixed !important;
-            width: 330px !important;
-            max-width: calc(100vw - 28px) !important;
+            width: 360px !important;
+            max-width: calc(100vw - 24px) !important;
             background: #ffffff !important;
-            color: #202124 !important;
-            border-radius: 14px !important;
-            box-shadow: 0 16px 40px rgba(0,0,0,0.24), 0 4px 12px rgba(0,0,0,0.12) !important;
-            border: 1px solid #dadce0 !important;
+            color: #1e293b !important;
+            border-radius: 16px !important;
+            box-shadow: 0 20px 45px rgba(0,0,0,0.22), 0 4px 14px rgba(0,0,0,0.08) !important;
+            border: 1px solid #cbd5e1 !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
             z-index: 2147483647 !important;
             overflow: hidden !important;
@@ -393,59 +385,87 @@
         `;
 
         // Position smoothly relative to viewport
-        let posX = Math.max(12, Math.min(window.innerWidth - 346, (rect.left || 20)));
+        let posX = Math.max(12, Math.min(window.innerWidth - 376, (rect.left || 20)));
         let posY = (rect.bottom || 60) + 10;
-        if (posY + 260 > window.innerHeight) {
-            posY = Math.max(12, (rect.top || 100) - 240);
+        if (posY + 320 > window.innerHeight) {
+            posY = Math.max(12, (rect.top || 100) - 300);
         }
         card.style.left = `${posX}px`;
         card.style.top = `${posY}px`;
 
+        let selectedTag = 'Dịch thuật';
+
         card.innerHTML = `
-            <div style="background: #f8fafd; border-bottom: 1px solid #e8eaed; padding: 9px 12px; display: flex; justify-content: space-between; align-items: center; user-select: none;">
+            <!-- Header (Drag Handle) -->
+            <div id="infosys-card-header" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; cursor: grab; user-select: none;">
                 <div style="display: flex; align-items: center; gap: 6px;">
-                    <div style="background:#1a73e8; border-radius:6px; width:22px; height:22px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:12px; font-weight:bold;">G</div>
-                    <span style="font-weight: 700; font-size: 13px; color: #1a73e8;">Google Dịch</span>
-                    <span style="background: #e8f0fe; color: #1967d2; font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 8px;">➔ Tiếng Việt</span>
+                    <div style="background:#1a73e8; border-radius:6px; width:20px; height:20px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:800; flex-shrink:0;">G</div>
+                    <span style="font-weight: 700; font-size: 12px; color: #1a73e8;">Google Dịch</span>
+                    <div style="display: flex; align-items: center; gap: 2px; background: #e8f0fe; padding: 1px 5px; border-radius: 8px; border: 1px solid #c2e7ff;">
+                        <span style="font-size: 10px; font-weight: 700; color: #1967d2;">➔</span>
+                        <select id="infosys-target-lang-select" style="background: transparent; border: none; font-size: 11px; font-weight: 700; color: #1967d2; cursor: pointer; outline: none; padding: 1px 2px;">
+                        </select>
+                    </div>
+                    <button id="infosys-swap-lang-btn" style="background: transparent; border: none; font-size: 13px; color: #1a73e8; cursor: pointer; padding: 2px 4px; border-radius: 4px; display: flex; align-items: center;" title="Đổi chiều dịch">⇄</button>
                 </div>
-                <div style="display: flex; align-items: center; gap: 5px;">
-                    <button class="infosys-speed-pill" id="infosys-card-speed-btn" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 10px; cursor: pointer;" title="Bấm để đổi tốc độ đọc (0.75x, 1x, 1.25x, 1.5x, 2x)">
+                <div style="display: flex; align-items: center; gap: 3px;">
+                    <button class="infosys-speed-pill" id="infosys-card-speed-btn" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 8px; cursor: pointer;" title="Đổi tốc độ đọc (0.75x, 1x, 1.25x, 1.5x, 2x)">
                         ⚡ ${ttsConfig.rate}x
                     </button>
-                    <button id="infosys-close-trans" style="background: transparent; border: none; font-size: 16px; color: #5f6368; cursor: pointer; padding: 2px 6px; border-radius: 4px; line-height: 1;" title="Đóng">✕</button>
+                    <button id="infosys-pin-card-btn" style="background: transparent; border: none; font-size: 13px; color: #64748b; cursor: pointer; padding: 3px 5px; border-radius: 4px; transition: all 0.15s;" title="Ghim popup (không tự tắt khi click ra ngoài)">
+                        📌
+                    </button>
+                    <button id="infosys-open-external-btn" style="background: transparent; border: none; font-size: 13px; color: #64748b; cursor: pointer; padding: 3px 5px; border-radius: 4px;" title="Mở trang Google Dịch đầy đủ trong tab mới">
+                        ↗
+                    </button>
+                    <button id="infosys-close-trans" style="background: transparent; border: none; font-size: 15px; color: #64748b; cursor: pointer; padding: 2px 5px; border-radius: 4px; line-height: 1;" title="Đóng">✕</button>
                 </div>
             </div>
 
-            <div style="padding: 12px; max-height: 240px; overflow-y: auto;">
-                <div style="font-size: 11px; color: #5f6368; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+            <!-- Body -->
+            <div style="padding: 12px; max-height: 280px; overflow-y: auto;">
+                <!-- Original Text -->
+                <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
                     <span style="font-weight: 600;">Văn bản gốc:</span>
-                    <button id="infosys-speak-orig" style="background: transparent; border: none; color: #1a73e8; cursor: pointer; font-size: 11px; font-weight:600; display: flex; align-items: center; gap: 3px; padding: 1px 4px;" title="Nghe văn bản gốc">🔊 Nghe</button>
+                    <div style="display: flex; gap: 4px;">
+                        <button id="infosys-speak-orig" style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; color: #1a73e8; cursor: pointer; font-size: 11px; font-weight: 600; padding: 2px 6px; display: flex; align-items: center; gap: 3px;" title="Nghe văn bản gốc">🔊 Nghe</button>
+                        <button id="infosys-copy-orig" style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; color: #475569; cursor: pointer; font-size: 11px; font-weight: 600; padding: 2px 6px; display: flex; align-items: center; gap: 3px;" title="Sao chép văn bản gốc">📋 Chép</button>
+                    </div>
                 </div>
-                <div style="font-size: 12px; color: #3c4043; background: #f8f9fa; padding: 6px 10px; border-radius: 6px; margin-bottom: 10px; word-break: break-word; max-height: 65px; overflow-y: auto;">
+                <div id="infosys-orig-display" style="font-size: 12px; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px 10px; border-radius: 8px; margin-bottom: 10px; word-break: break-word; max-height: 65px; overflow-y: auto;">
                     ${text.replace(/</g, '&lt;')}
                 </div>
 
-                <div style="font-size: 12px; color: #1a73e8; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
-                    <span>Bản dịch Tiếng Việt:</span>
+                <!-- Translated Text -->
+                <div style="font-size: 11px; color: #1a73e8; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
+                    <span>Bản dịch (có thể chỉnh sửa):</span>
+                    <span id="infosys-trans-lang-label" style="font-size: 10px; font-weight: 600; color: #64748b;">[Tiếng Việt]</span>
                 </div>
                 <div id="infosys-trans-loading" style="display: flex; align-items: center; gap: 8px; color: #1a73e8; font-size: 13px; padding: 10px 0;">
                     <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid #e8eaed; border-top-color: #1a73e8; border-radius: 50%; animation: infosys-spin 0.8s linear infinite;"></span>
                     <span>Đang dịch tức thì...</span>
                 </div>
-                <div id="infosys-trans-output" style="display: none; font-size: 14px; font-weight: 500; color: #1e293b; line-height: 1.5; word-break: break-word; background: #eff6ff; padding: 9px 12px; border-radius: 8px; border: 1px solid #bfdbfe;">
+                <textarea id="infosys-trans-output" style="display: none; width: 100%; min-height: 65px; max-height: 120px; font-size: 13.5px; font-weight: 500; color: #0f172a; line-height: 1.45; word-break: break-word; background: #eff6ff; padding: 8px 10px; border-radius: 8px; border: 1px solid #bfdbfe; resize: vertical; box-sizing: border-box; font-family: inherit; outline: none;"></textarea>
+
+                <!-- Quick Tags -->
+                <div style="margin-top: 10px;">
+                    <div style="font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 4px;">🏷️ Chọn Tag khi lưu:</div>
+                    <div id="infosys-tag-selector" style="display: flex; gap: 4px; flex-wrap: wrap;">
+                    </div>
                 </div>
             </div>
 
-            <div style="background: #f8fafd; border-top: 1px solid #e8eaed; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <!-- Footer Actions -->
+            <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap;">
                 <div style="display: flex; gap: 6px;">
-                    <button id="infosys-speak-trans" style="background: #ffffff; border: 1px solid #dadce0; border-radius: 6px; padding: 4px 9px; font-size: 12px; font-weight: 600; color: #1a73e8; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Đọc bản dịch tiếng Việt">
+                    <button id="infosys-speak-trans" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 10px; font-size: 12px; font-weight: 600; color: #1a73e8; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Đọc bản dịch">
                         🔊 Đọc
                     </button>
-                    <button id="infosys-copy-trans" style="background: #ffffff; border: 1px solid #dadce0; border-radius: 6px; padding: 4px 9px; font-size: 12px; font-weight: 600; color: #3c4043; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Sao chép bản dịch">
+                    <button id="infosys-copy-trans" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 10px; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Sao chép bản dịch">
                         📋 Chép
                     </button>
                 </div>
-                <button id="infosys-save-trans" style="background: #1a73e8; border: none; border-radius: 6px; padding: 5px 11px; font-size: 12px; font-weight: 600; color: #ffffff; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Lưu vào Bảng tạm InfoSys">
+                <button id="infosys-save-trans" style="background: #1a73e8; border: none; border-radius: 6px; padding: 5px 12px; font-size: 12px; font-weight: 700; color: #ffffff; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s;" title="Lưu bản dịch vào Bảng tạm InfoSys">
                     📥 Lưu Bảng tạm
                 </button>
             </div>
@@ -457,54 +477,205 @@
         card.addEventListener('mousedown', (e) => e.stopPropagation());
         card.addEventListener('pointerdown', (e) => e.stopPropagation());
 
-        card.querySelector('#infosys-close-trans').onclick = (e) => {
-            e.stopPropagation();
-            hideTranslateCard();
+        // 1. Dragging Logic
+        const header = card.querySelector('#infosys-card-header');
+        let isDragging = false;
+        let startMouseX = 0, startMouseY = 0;
+        let cardStartLeft = 0, cardStartTop = 0;
+
+        header.onpointerdown = (e) => {
+            if (e.target.closest('button') || e.target.closest('select')) return;
+            isDragging = true;
+            header.style.cursor = 'grabbing';
+            startMouseX = e.clientX;
+            startMouseY = e.clientY;
+            cardStartLeft = card.offsetLeft;
+            cardStartTop = card.offsetTop;
+            header.setPointerCapture(e.pointerId);
         };
 
+        header.onpointermove = (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - startMouseX;
+            const dy = e.clientY - startMouseY;
+            let newLeft = Math.max(8, Math.min(window.innerWidth - card.offsetWidth - 8, cardStartLeft + dx));
+            let newTop = Math.max(8, Math.min(window.innerHeight - card.offsetHeight - 8, cardStartTop + dy));
+            card.style.left = `${newLeft}px`;
+            card.style.top = `${newTop}px`;
+        };
+
+        header.onpointerup = (e) => {
+            if (isDragging) {
+                isDragging = false;
+                header.style.cursor = 'grab';
+                try { header.releasePointerCapture(e.pointerId); } catch(err) {}
+            }
+        };
+
+        // 2. Pin Button
+        const pinBtn = card.querySelector('#infosys-pin-card-btn');
+        pinBtn.onclick = (e) => {
+            e.stopPropagation();
+            isCardPinned = !isCardPinned;
+            if (isCardPinned) {
+                pinBtn.style.background = '#e0f2fe';
+                pinBtn.style.color = '#0284c7';
+                pinBtn.style.border = '1px solid #7dd3fc';
+                pinBtn.title = 'Đã ghim popup (Bấm để bỏ ghim)';
+                showToast('📌 Đã ghim Popup');
+            } else {
+                pinBtn.style.background = 'transparent';
+                pinBtn.style.color = '#64748b';
+                pinBtn.style.border = 'none';
+                pinBtn.title = 'Ghim popup (không tự tắt khi click ra ngoài)';
+                showToast('Đã bỏ ghim Popup');
+            }
+        };
+
+        // 3. Open External Google Translate Tab
+        card.querySelector('#infosys-open-external-btn').onclick = (e) => {
+            e.stopPropagation();
+            const url = `https://translate.google.com/?sl=auto&tl=${currentTargetLang}&text=${encodeURIComponent(text)}`;
+            window.open(url, '_blank');
+        };
+
+        // 4. Close Button
+        card.querySelector('#infosys-close-trans').onclick = (e) => {
+            e.stopPropagation();
+            forceHideTranslateCard();
+        };
+
+        // 5. Speed Toggle
         card.querySelector('#infosys-card-speed-btn').onclick = (e) => {
             e.stopPropagation();
             cycleTtsSpeed();
         };
 
-        card.querySelector('#infosys-speak-orig').onclick = (e) => {
-            e.stopPropagation();
-            speakOriginal(text, e.currentTarget);
-        };
+        // 6. Target Language Selector & Translation Function
+        const langSelect = card.querySelector('#infosys-target-lang-select');
+        SUPPORTED_LANGUAGES.forEach(l => {
+            const opt = document.createElement('option');
+            opt.value = l.code;
+            opt.textContent = `${l.flag} ${l.name}`;
+            if (l.code === currentTargetLang) opt.selected = true;
+            langSelect.appendChild(opt);
+        });
 
-        let translatedResult = '';
-        try {
-            translatedResult = await translateText(text, 'vi');
+        async function reTranslate(newLang, textToTranslate) {
+            currentTargetLang = newLang;
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                chrome.storage.local.set({ infosys_target_lang: newLang });
+            }
+            const langObj = SUPPORTED_LANGUAGES.find(x => x.code === newLang);
+            const langLabel = card.querySelector('#infosys-trans-lang-label');
+            if (langLabel) langLabel.textContent = `[${langObj ? langObj.name : newLang}]`;
+
             const loadEl = card.querySelector('#infosys-trans-loading');
             const outEl = card.querySelector('#infosys-trans-output');
             if (loadEl && outEl) {
-                loadEl.style.display = 'none';
-                outEl.style.display = 'block';
-                outEl.textContent = translatedResult;
+                loadEl.style.display = 'flex';
+                outEl.style.display = 'none';
             }
-        } catch (err) {
-            const loadEl = card.querySelector('#infosys-trans-loading');
-            if (loadEl) loadEl.innerHTML = `<span style="color:#dc2626;">⚠️ ${err.message || 'Lỗi dịch thuật'}</span>`;
+
+            try {
+                const res = await translateText(textToTranslate, newLang);
+                if (loadEl && outEl) {
+                    loadEl.style.display = 'none';
+                    outEl.style.display = 'block';
+                    outEl.value = res;
+                }
+            } catch (err) {
+                if (loadEl) loadEl.innerHTML = `<span style="color:#dc2626;">⚠️ ${err.message || 'Lỗi dịch'}</span>`;
+            }
         }
 
-        card.querySelector('#infosys-speak-trans').onclick = (e) => {
+        langSelect.onchange = (e) => {
             e.stopPropagation();
-            if (translatedResult) speakVietnamese(translatedResult, e.currentTarget);
+            reTranslate(e.target.value, text);
         };
 
+        card.querySelector('#infosys-swap-lang-btn').onclick = (e) => {
+            e.stopPropagation();
+            const nextLang = currentTargetLang === 'vi' ? 'en' : 'vi';
+            langSelect.value = nextLang;
+            reTranslate(nextLang, text);
+        };
+
+        // 7. Original Audio & Copy
+        card.querySelector('#infosys-speak-orig').onclick = (e) => {
+            e.stopPropagation();
+            speakInLang(text, 'auto', e.currentTarget);
+        };
+
+        card.querySelector('#infosys-copy-orig').onclick = (e) => {
+            e.stopPropagation();
+            navigator.clipboard.writeText(text);
+            showToast('Đã sao chép văn bản gốc');
+        };
+
+        // 8. Quick Tags
+        const tagContainer = card.querySelector('#infosys-tag-selector');
+        QUICK_TAGS.forEach((tag) => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = tag;
+            const isDefault = tag === selectedTag;
+            btn.style.cssText = `
+                background: ${isDefault ? '#1a73e8' : '#f1f5f9'};
+                color: ${isDefault ? '#ffffff' : '#475569'};
+                border: 1px solid ${isDefault ? '#1a73e8' : '#cbd5e1'};
+                padding: 2px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.15s;
+            `;
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                selectedTag = tag;
+                tagContainer.querySelectorAll('button').forEach(b => {
+                    b.style.background = '#f1f5f9';
+                    b.style.color = '#475569';
+                    b.style.border = '1px solid #cbd5e1';
+                });
+                btn.style.background = '#1a73e8';
+                btn.style.color = '#ffffff';
+                btn.style.border = '1px solid #1a73e8';
+            };
+            tagContainer.appendChild(btn);
+        });
+
+        // Initial translation execution
+        reTranslate(currentTargetLang, text);
+
+        // 9. Speak Translation
+        card.querySelector('#infosys-speak-trans').onclick = (e) => {
+            e.stopPropagation();
+            const outEl = card.querySelector('#infosys-trans-output');
+            const transText = outEl ? outEl.value.trim() : '';
+            if (transText) speakInLang(transText, currentTargetLang, e.currentTarget);
+        };
+
+        // 10. Copy Translation
         card.querySelector('#infosys-copy-trans').onclick = (e) => {
             e.stopPropagation();
-            if (translatedResult) {
-                navigator.clipboard.writeText(translatedResult);
+            const outEl = card.querySelector('#infosys-trans-output');
+            const transText = outEl ? outEl.value.trim() : '';
+            if (transText) {
+                navigator.clipboard.writeText(transText);
                 showToast('Đã sao chép bản dịch');
             }
         };
 
+        // 11. Save Translation with Tag
         card.querySelector('#infosys-save-trans').onclick = (e) => {
             e.stopPropagation();
-            if (translatedResult) {
-                doSaveToBangTam(translatedResult);
-                hideTranslateCard();
+            const outEl = card.querySelector('#infosys-trans-output');
+            const finalTranslatedText = outEl ? outEl.value.trim() : '';
+            if (finalTranslatedText) {
+                doSaveToBangTam(finalTranslatedText, selectedTag);
+                if (!isCardPinned) forceHideTranslateCard();
             }
         };
     }
@@ -542,7 +713,7 @@
         bar.style.top = `${posY}px`;
 
         bar.innerHTML = `
-            <button id="infosys-tb-trans" style="background: #1a73e8; border: none; color: #ffffff; padding: 4px 10px; border-radius: 14px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: transform 0.15s, background 0.15s; box-shadow: 0 2px 6px rgba(26,115,232,0.4);" onmouseover="this.style.background='#1557b0';" onmouseout="this.style.background='#1a73e8';" title="Dịch sang Tiếng Việt (Google Dịch)">
+            <button id="infosys-tb-trans" style="background: #1a73e8; border: none; color: #ffffff; padding: 4px 10px; border-radius: 14px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: transform 0.15s, background 0.15s; box-shadow: 0 2px 6px rgba(26,115,232,0.4);" onmouseover="this.style.background='#1557b0';" onmouseout="this.style.background='#1a73e8';" title="Dịch văn bản với Google Dịch">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"></path><path d="m4 14 6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="m22 22-5-10-5 10"></path><path d="M14 18h6"></path></svg>
                 <span>Dịch Google</span>
             </button>
@@ -550,7 +721,7 @@
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
                 <span>Lưu</span>
             </button>
-            <button id="infosys-tb-speak" style="background: transparent; border: none; color: #22c55e; padding: 4px 7px; border-radius: 14px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s;" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='transparent'" title="Đọc Tiếng Việt">
+            <button id="infosys-tb-speak" style="background: transparent; border: none; color: #22c55e; padding: 4px 7px; border-radius: 14px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s;" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='transparent'" title="Đọc phát âm">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                 <span>Đọc</span>
             </button>
@@ -578,7 +749,7 @@
 
         bar.querySelector('#infosys-tb-speak').onclick = (e) => {
             e.stopPropagation();
-            speakVietnamese(text, e.currentTarget);
+            speakInLang(text, 'vi', e.currentTarget);
         };
 
         bar.querySelector('#infosys-tb-speed').onclick = (e) => {
@@ -657,10 +828,12 @@
     }, true);
 
     document.addEventListener('mousedown', (e) => {
+        if (isCardPinned) return;
         if (e.target && e.target.closest && (e.target.closest('#infosys-floating-toolbar') || e.target.closest('#infosys-translate-card'))) {
             return;
         }
         setTimeout(() => {
+            if (isCardPinned) return;
             const sel = window.getSelection();
             if (!sel || sel.isCollapsed) {
                 hideFloatingWidgets();
