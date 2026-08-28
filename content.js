@@ -359,7 +359,7 @@
         hideTranslateCard();
     }
 
-    // Google Translate Popup Card (Full-featured: Drag, Pin, Lang Select, Edit, Tagging)
+    // Google Translate Popup Card (Clean, Spacious & Intuitive UI)
     async function showGoogleTranslateCard(rect, text) {
         hideFloatingToolbar();
         const existingCard = document.getElementById('infosys-translate-card');
@@ -369,26 +369,26 @@
         card.id = 'infosys-translate-card';
         card.style.cssText = `
             position: fixed !important;
-            width: 360px !important;
+            width: 440px !important;
             max-width: calc(100vw - 24px) !important;
             background: #ffffff !important;
-            color: #1e293b !important;
+            color: #0f172a !important;
             border-radius: 16px !important;
-            box-shadow: 0 20px 45px rgba(0,0,0,0.22), 0 4px 14px rgba(0,0,0,0.08) !important;
+            box-shadow: 0 20px 45px -8px rgba(15,23,42,0.25), 0 8px 16px -4px rgba(15,23,42,0.1) !important;
             border: 1px solid #cbd5e1 !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
             z-index: 2147483647 !important;
             overflow: hidden !important;
-            animation: infosys-fade-in 0.18s ease-out !important;
+            animation: infosys-fade-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
             line-height: 1.5 !important;
             box-sizing: border-box !important;
         `;
 
         // Position smoothly relative to viewport
-        let posX = Math.max(12, Math.min(window.innerWidth - 376, (rect.left || 20)));
+        let posX = Math.max(12, Math.min(window.innerWidth - 456, (rect.left || 20)));
         let posY = (rect.bottom || 60) + 10;
-        if (posY + 320 > window.innerHeight) {
-            posY = Math.max(12, (rect.top || 100) - 300);
+        if (posY + 360 > window.innerHeight) {
+            posY = Math.max(12, (rect.top || 100) - 340);
         }
         card.style.left = `${posX}px`;
         card.style.top = `${posY}px`;
@@ -396,77 +396,82 @@
         let selectedTag = 'Dịch thuật';
 
         card.innerHTML = `
-            <!-- Header (Drag Handle) -->
-            <div id="infosys-card-header" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; cursor: grab; user-select: none;">
-                <div style="display: flex; align-items: center; gap: 6px;">
-                    <div style="background:#1a73e8; border-radius:6px; width:20px; height:20px; display:flex; align-items:center; justify-content:center; color:#fff; font-size:11px; font-weight:800; flex-shrink:0;">G</div>
-                    <span style="font-weight: 700; font-size: 12px; color: #1a73e8;">Google Dịch</span>
-                    <div style="display: flex; align-items: center; gap: 2px; background: #e8f0fe; padding: 1px 5px; border-radius: 8px; border: 1px solid #c2e7ff;">
-                        <span style="font-size: 10px; font-weight: 700; color: #1967d2;">➔</span>
-                        <select id="infosys-target-lang-select" style="background: transparent; border: none; font-size: 11px; font-weight: 700; color: #1967d2; cursor: pointer; outline: none; padding: 1px 2px;">
+            <!-- Top Header Bar (Draggable) -->
+            <div id="infosys-card-header" style="background: #ffffff; border-bottom: 1px solid #f1f5f9; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; cursor: grab; user-select: none;">
+                <!-- Left: Logo & Language Selector -->
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="background: #1a73e8; border-radius: 6px; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; color: #ffffff; font-size: 12px; font-weight: 800; flex-shrink: 0; box-shadow: 0 2px 4px rgba(26,115,232,0.3);">G</div>
+                    <span style="font-weight: 700; font-size: 13.5px; color: #1a73e8; letter-spacing: -0.2px;">Google Dịch</span>
+                    <div style="display: flex; align-items: center; gap: 3px; background: #eff6ff; border: 1px solid #bfdbfe; padding: 2px 8px; border-radius: 20px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #1d4ed8;">➔</span>
+                        <select id="infosys-target-lang-select" style="background: transparent; border: none; font-size: 12px; font-weight: 700; color: #1d4ed8; cursor: pointer; outline: none; padding: 1px 2px;">
                         </select>
                     </div>
-                    <button id="infosys-swap-lang-btn" style="background: transparent; border: none; font-size: 13px; color: #1a73e8; cursor: pointer; padding: 2px 4px; border-radius: 4px; display: flex; align-items: center;" title="Đổi chiều dịch">⇄</button>
+                    <button id="infosys-swap-lang-btn" style="background: #f8fafc; border: 1px solid #e2e8f0; font-size: 13px; color: #1a73e8; cursor: pointer; padding: 3px 6px; border-radius: 6px; display: flex; align-items: center; transition: all 0.15s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#f8fafc'" title="Đổi chiều ngôn ngữ">⇄</button>
                 </div>
-                <div style="display: flex; align-items: center; gap: 3px;">
-                    <button class="infosys-speed-pill" id="infosys-card-speed-btn" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 8px; cursor: pointer;" title="Đổi tốc độ đọc (0.75x, 1x, 1.25x, 1.5x, 2x)">
+
+                <!-- Right: Speed, Pin, External, Close -->
+                <div style="display: flex; align-items: center; gap: 5px;">
+                    <button class="infosys-speed-pill" id="infosys-card-speed-btn" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 12px; cursor: pointer; transition: all 0.15s;" title="Đổi tốc độ đọc (0.75x, 1x, 1.25x, 1.5x, 2x)">
                         ⚡ ${ttsConfig.rate}x
                     </button>
-                    <button id="infosys-pin-card-btn" style="background: transparent; border: none; font-size: 13px; color: #64748b; cursor: pointer; padding: 3px 5px; border-radius: 4px; transition: all 0.15s;" title="Ghim popup (không tự tắt khi click ra ngoài)">
+                    <button id="infosys-pin-card-btn" style="background: #f8fafc; border: 1px solid #e2e8f0; font-size: 13px; color: #64748b; cursor: pointer; padding: 3px 7px; border-radius: 6px; transition: all 0.15s;" title="Ghim popup (không tự tắt khi click ra ngoài)">
                         📌
                     </button>
-                    <button id="infosys-open-external-btn" style="background: transparent; border: none; font-size: 13px; color: #64748b; cursor: pointer; padding: 3px 5px; border-radius: 4px;" title="Mở trang Google Dịch đầy đủ trong tab mới">
+                    <button id="infosys-open-external-btn" style="background: #f8fafc; border: 1px solid #e2e8f0; font-size: 12px; color: #64748b; cursor: pointer; padding: 3px 7px; border-radius: 6px; font-weight: bold; transition: all 0.15s;" onmouseover="this.style.color='#1a73e8'" onmouseout="this.style.color='#64748b'" title="Mở trang Google Dịch đầy đủ">
                         ↗
                     </button>
-                    <button id="infosys-close-trans" style="background: transparent; border: none; font-size: 15px; color: #64748b; cursor: pointer; padding: 2px 5px; border-radius: 4px; line-height: 1;" title="Đóng">✕</button>
+                    <button id="infosys-close-trans" style="background: transparent; border: none; font-size: 15px; color: #94a3b8; cursor: pointer; padding: 3px 7px; border-radius: 6px; line-height: 1; transition: all 0.15s;" onmouseover="this.style.color='#ef4444'; this.style.background='#fee2e2';" onmouseout="this.style.color='#94a3b8'; this.style.background='transparent';" title="Đóng">✕</button>
                 </div>
             </div>
 
-            <!-- Body -->
-            <div style="padding: 12px; max-height: 280px; overflow-y: auto;">
-                <!-- Original Text -->
-                <div style="font-size: 11px; color: #64748b; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-weight: 600;">Văn bản gốc:</span>
-                    <div style="display: flex; gap: 4px;">
-                        <button id="infosys-speak-orig" style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; color: #1a73e8; cursor: pointer; font-size: 11px; font-weight: 600; padding: 2px 6px; display: flex; align-items: center; gap: 3px;" title="Nghe văn bản gốc">🔊 Nghe</button>
-                        <button id="infosys-copy-orig" style="background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 4px; color: #475569; cursor: pointer; font-size: 11px; font-weight: 600; padding: 2px 6px; display: flex; align-items: center; gap: 3px;" title="Sao chép văn bản gốc">📋 Chép</button>
+            <!-- Body Container -->
+            <div style="padding: 14px 16px 10px 16px; max-height: 380px; overflow-y: auto;">
+                <!-- 1. Original Text Pane -->
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 9px 12px; margin-bottom: 10px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                        <span style="font-size: 10.5px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Văn bản gốc</span>
+                        <div style="display: flex; gap: 4px;">
+                            <button id="infosys-speak-orig" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 5px; color: #0284c7; cursor: pointer; font-size: 11px; font-weight: 600; padding: 2px 7px; display: inline-flex; align-items: center; gap: 3px; transition: all 0.15s;" onmouseover="this.style.background='#e0f2fe'" onmouseout="this.style.background='#ffffff'" title="Nghe phát âm gốc">🔊 Nghe</button>
+                            <button id="infosys-copy-orig" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 5px; color: #475569; cursor: pointer; font-size: 11px; font-weight: 600; padding: 2px 7px; display: inline-flex; align-items: center; gap: 3px; transition: all 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#ffffff'" title="Sao chép văn bản gốc">📋 Chép</button>
+                        </div>
+                    </div>
+                    <div id="infosys-orig-display" style="font-size: 13px; color: #334155; line-height: 1.45; word-break: break-word; max-height: 70px; overflow-y: auto; padding-right: 4px;">
+                        ${text.replace(/</g, '&lt;')}
                     </div>
                 </div>
-                <div id="infosys-orig-display" style="font-size: 12px; color: #334155; background: #f8fafc; border: 1px solid #e2e8f0; padding: 6px 10px; border-radius: 8px; margin-bottom: 10px; word-break: break-word; max-height: 65px; overflow-y: auto;">
-                    ${text.replace(/</g, '&lt;')}
+
+                <!-- 2. Translated Text Pane (Editable) -->
+                <div style="background: #f0f7ff; border: 1.5px solid #93c5fd; border-radius: 10px; padding: 10px 12px; margin-bottom: 12px; box-shadow: inset 0 1px 2px rgba(0,0,0,0.02);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                        <span style="font-size: 11px; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.5px;">
+                            Bản dịch <span id="infosys-trans-lang-label" style="font-weight: 600; color: #3b82f6; text-transform: none;">(Tiếng Việt)</span>
+                        </span>
+                        <div style="display: flex; gap: 4px;">
+                            <button id="infosys-speak-trans" style="background: #ffffff; border: 1px solid #bfdbfe; border-radius: 5px; color: #1d4ed8; cursor: pointer; font-size: 11px; font-weight: 700; padding: 2px 8px; display: inline-flex; align-items: center; gap: 3px; transition: all 0.15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#ffffff'" title="Đọc bản dịch">🔊 Đọc</button>
+                            <button id="infosys-copy-trans" style="background: #ffffff; border: 1px solid #bfdbfe; border-radius: 5px; color: #1e40af; cursor: pointer; font-size: 11px; font-weight: 600; padding: 2px 8px; display: inline-flex; align-items: center; gap: 3px; transition: all 0.15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#ffffff'" title="Sao chép bản dịch">📋 Chép</button>
+                        </div>
+                    </div>
+                    <div id="infosys-trans-loading" style="display: flex; align-items: center; gap: 8px; color: #1d4ed8; font-size: 13px; padding: 12px 0;">
+                        <span style="display: inline-block; width: 15px; height: 15px; border: 2.5px solid #bfdbfe; border-top-color: #1d4ed8; border-radius: 50%; animation: infosys-spin 0.8s linear infinite;"></span>
+                        <span style="font-weight: 500;">Đang dịch tức thì...</span>
+                    </div>
+                    <textarea id="infosys-trans-output" style="display: none; width: 100%; min-height: 75px; max-height: 140px; font-size: 14px; font-weight: 500; color: #0f172a; line-height: 1.55; word-break: break-word; background: transparent; border: none; outline: none; resize: none; box-sizing: border-box; font-family: inherit; padding: 0; margin: 0;" placeholder="Bản dịch..."></textarea>
                 </div>
 
-                <!-- Translated Text -->
-                <div style="font-size: 11px; color: #1a73e8; font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; justify-content: space-between;">
-                    <span>Bản dịch (có thể chỉnh sửa):</span>
-                    <span id="infosys-trans-lang-label" style="font-size: 10px; font-weight: 600; color: #64748b;">[Tiếng Việt]</span>
-                </div>
-                <div id="infosys-trans-loading" style="display: flex; align-items: center; gap: 8px; color: #1a73e8; font-size: 13px; padding: 10px 0;">
-                    <span style="display: inline-block; width: 14px; height: 14px; border: 2px solid #e8eaed; border-top-color: #1a73e8; border-radius: 50%; animation: infosys-spin 0.8s linear infinite;"></span>
-                    <span>Đang dịch tức thì...</span>
-                </div>
-                <textarea id="infosys-trans-output" style="display: none; width: 100%; min-height: 65px; max-height: 120px; font-size: 13.5px; font-weight: 500; color: #0f172a; line-height: 1.45; word-break: break-word; background: #eff6ff; padding: 8px 10px; border-radius: 8px; border: 1px solid #bfdbfe; resize: vertical; box-sizing: border-box; font-family: inherit; outline: none;"></textarea>
-
-                <!-- Quick Tags -->
-                <div style="margin-top: 10px;">
-                    <div style="font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 4px;">🏷️ Chọn Tag khi lưu:</div>
-                    <div id="infosys-tag-selector" style="display: flex; gap: 4px; flex-wrap: wrap;">
+                <!-- 3. Quick Tag Selector -->
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                    <span style="font-size: 11px; font-weight: 700; color: #64748b; display: inline-flex; align-items: center; gap: 2px;">🏷️ Tag:</span>
+                    <div id="infosys-tag-selector" style="display: inline-flex; gap: 5px; flex-wrap: wrap;">
                     </div>
                 </div>
             </div>
 
-            <!-- Footer Actions -->
-            <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center; gap: 6px; flex-wrap: wrap;">
-                <div style="display: flex; gap: 6px;">
-                    <button id="infosys-speak-trans" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 10px; font-size: 12px; font-weight: 600; color: #1a73e8; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Đọc bản dịch">
-                        🔊 Đọc
-                    </button>
-                    <button id="infosys-copy-trans" style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 5px 10px; font-size: 12px; font-weight: 600; color: #334155; cursor: pointer; display: flex; align-items: center; gap: 4px;" title="Sao chép bản dịch">
-                        📋 Chép
-                    </button>
-                </div>
-                <button id="infosys-save-trans" style="background: #1a73e8; border: none; border-radius: 6px; padding: 5px 12px; font-size: 12px; font-weight: 700; color: #ffffff; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s;" title="Lưu bản dịch vào Bảng tạm InfoSys">
-                    📥 Lưu Bảng tạm
+            <!-- Footer Action Bar -->
+            <div style="background: #f8fafc; border-top: 1px solid #e2e8f0; padding: 9px 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px;">
+                <span style="font-size: 11px; color: #64748b; font-weight: 500;">💡 Có thể sửa trực tiếp bản dịch trước khi lưu</span>
+                <button id="infosys-save-trans" style="background: #1a73e8; border: none; border-radius: 8px; padding: 6px 14px; font-size: 12.5px; font-weight: 700; color: #ffffff; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.15s; box-shadow: 0 2px 6px rgba(26,115,232,0.35);" onmouseover="this.style.background='#1557b0';" onmouseout="this.style.background='#1a73e8';" title="Lưu bản dịch vào Bảng tạm InfoSys">
+                    <span>📥 Lưu Bảng tạm</span>
                 </button>
             </div>
         `;
@@ -526,9 +531,9 @@
                 pinBtn.title = 'Đã ghim popup (Bấm để bỏ ghim)';
                 showToast('📌 Đã ghim Popup');
             } else {
-                pinBtn.style.background = 'transparent';
+                pinBtn.style.background = '#f8fafc';
                 pinBtn.style.color = '#64748b';
-                pinBtn.style.border = 'none';
+                pinBtn.style.border = '1px solid #e2e8f0';
                 pinBtn.title = 'Ghim popup (không tự tắt khi click ra ngoài)';
                 showToast('Đã bỏ ghim Popup');
             }
@@ -570,7 +575,7 @@
             }
             const langObj = SUPPORTED_LANGUAGES.find(x => x.code === newLang);
             const langLabel = card.querySelector('#infosys-trans-lang-label');
-            if (langLabel) langLabel.textContent = `[${langObj ? langObj.name : newLang}]`;
+            if (langLabel) langLabel.textContent = `(${langObj ? langObj.name : newLang})`;
 
             const loadEl = card.querySelector('#infosys-trans-loading');
             const outEl = card.querySelector('#infosys-trans-output');
@@ -585,9 +590,12 @@
                     loadEl.style.display = 'none';
                     outEl.style.display = 'block';
                     outEl.value = res;
+                    // Auto adjust textarea height smoothly
+                    outEl.style.height = 'auto';
+                    outEl.style.height = Math.min(140, Math.max(70, outEl.scrollHeight)) + 'px';
                 }
             } catch (err) {
-                if (loadEl) loadEl.innerHTML = `<span style="color:#dc2626;">⚠️ ${err.message || 'Lỗi dịch'}</span>`;
+                if (loadEl) loadEl.innerHTML = `<span style="color:#dc2626; font-weight:600;">⚠️ ${err.message || 'Lỗi dịch'}</span>`;
             }
         }
 
@@ -623,21 +631,27 @@
             btn.textContent = tag;
             const isDefault = tag === selectedTag;
             btn.style.cssText = `
-                background: ${isDefault ? '#1a73e8' : '#f1f5f9'};
+                background: ${isDefault ? '#1a73e8' : '#ffffff'};
                 color: ${isDefault ? '#ffffff' : '#475569'};
                 border: 1px solid ${isDefault ? '#1a73e8' : '#cbd5e1'};
-                padding: 2px 8px;
+                padding: 2px 9px;
                 border-radius: 12px;
                 font-size: 11px;
                 font-weight: 600;
                 cursor: pointer;
                 transition: all 0.15s;
             `;
+            btn.onmouseover = () => {
+                if (selectedTag !== tag) btn.style.background = '#f1f5f9';
+            };
+            btn.onmouseout = () => {
+                if (selectedTag !== tag) btn.style.background = '#ffffff';
+            };
             btn.onclick = (e) => {
                 e.stopPropagation();
                 selectedTag = tag;
                 tagContainer.querySelectorAll('button').forEach(b => {
-                    b.style.background = '#f1f5f9';
+                    b.style.background = '#ffffff';
                     b.style.color = '#475569';
                     b.style.border = '1px solid #cbd5e1';
                 });
