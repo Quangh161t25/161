@@ -9,6 +9,16 @@ document.addEventListener('click', (e) => {
     }
 });
 document.addEventListener('DOMContentLoaded', () => {
+    // Show ToolBox tab ONLY when running in Chrome Extension environment (chrome-extension://)
+    const isExtension = typeof chrome !== 'undefined' && 
+                        chrome.runtime && 
+                        Boolean(chrome.runtime.id) && 
+                        location.protocol === 'chrome-extension:';
+    const toolboxTab = document.getElementById('tab_TOOLBOX');
+    if (toolboxTab) {
+        toolboxTab.style.display = isExtension ? 'flex' : 'none';
+    }
+
     lucide.createIcons();
     document.getElementById('loading').style.display = 'none';
     if (window.updateGlobalFloatingButtonUI) window.updateGlobalFloatingButtonUI();

@@ -17,6 +17,17 @@ async function switchTab(tabName) {
         }
     }
 
+    if (tabName === 'TOOLBOX') {
+        const isExtension = typeof chrome !== 'undefined' && 
+                            chrome.runtime && 
+                            Boolean(chrome.runtime.id) && 
+                            location.protocol === 'chrome-extension:';
+        if (!isExtension) {
+            switchTab('LICH');
+            return;
+        }
+    }
+
     currentView = tabName;
     if (tabName === 'HOM_NAY' || tabName === 'LICH') {
         currentTab = 'CONG_VIEC';
