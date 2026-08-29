@@ -61,6 +61,22 @@ function setupEventListeners() {
         });
     }
 
+    const openToolboxBtn = document.getElementById('openToolboxBtn');
+    if (openToolboxBtn) {
+        openToolboxBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (typeof chrome !== 'undefined' && chrome.tabs && chrome.tabs.create) {
+                chrome.tabs.create({ url: chrome.runtime.getURL('toolbox.html') });
+            } else if (typeof chrome !== 'undefined' && chrome.sidePanel && chrome.sidePanel.open) {
+                chrome.sidePanel.open({ windowId: chrome.windows.WINDOW_ID_CURRENT }).catch(() => {
+                    window.open('toolbox.html', '_blank', 'width=480,height=750');
+                });
+            } else {
+                window.open('toolbox.html', '_blank', 'width=480,height=750');
+            }
+        });
+    }
+
     // TTS Settings Modal controls
     const ttsRateSlider = document.getElementById('ttsRateSlider');
     const ttsRateValue = document.getElementById('ttsRateValue');

@@ -741,6 +741,10 @@
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                 <span>Đọc</span>
             </button>
+            <button id="infosys-tb-toolbox" style="background: transparent; border: none; color: #c084fc; padding: 4px 7px; border-radius: 14px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s;" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='transparent'" title="Mở ToolBox Suite (Chụp màn hình, Color Picker, Downloader)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                <span>ToolBox</span>
+            </button>
             <button class="infosys-speed-pill" id="infosys-tb-speed" style="background: #1e293b; border: 1px solid #475569; color: #93c5fd; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Đổi tốc độ đọc (0.75x, 1x, 1.25x, 1.5x, 2x)">
                 ⚡ ${ttsConfig.rate}x
             </button>
@@ -758,6 +762,13 @@
         bar.querySelector('#infosys-tb-trans').onclick = (e) => {
             e.stopPropagation();
             showGoogleTranslateCard(rect, text);
+        };
+
+        bar.querySelector('#infosys-tb-toolbox').onclick = (e) => {
+            e.stopPropagation();
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage({ action: 'OPEN_TOOLBOX' });
+            }
         };
 
         bar.querySelector('#infosys-tb-save').onclick = (e) => {

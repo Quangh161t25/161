@@ -1,41 +1,112 @@
 {
   "manifest_version": 3,
-  "name": "InfoSys Management",
-  "version": "1.1.7",
-  "description": "Hệ thống Quản lý InfoSys & Tự động lưu Bảng tạm",
+  "name": "InfoSys Management & ToolBox Suite",
+  "short_name": "InfoSys Suite",
+  "version": "1.2.0",
+  "description": "Hệ thống Quản lý InfoSys & Bộ công cụ Tiện ích Đồ họa (Color Picker, Screen Grabber, Downloader, Tools)",
   "icons": {
-    "16": "favicon.png",
-    "48": "favicon.png",
-    "128": "favicon.png"
+    "16": "svg/icon16.png",
+    "32": "svg/icon32.png",
+    "48": "svg/icon48.png",
+    "128": "svg/icon128.png"
   },
   "action": {
-    "default_title": "Mở InfoSys"
+    "default_popup": "index.html",
+    "default_title": "Mở InfoSys & ToolBox",
+    "default_icon": {
+      "16": "svg/icon16.png",
+      "32": "svg/icon32.png",
+      "48": "svg/icon48.png",
+      "128": "svg/icon128.png"
+    }
   },
   "background": {
     "service_worker": "background.js"
   },
+  "side_panel": {
+    "default_path": "toolbox.html"
+  },
+  "permissions": [
+    "activeTab",
+    "tabs",
+    "scripting",
+    "storage",
+    "debugger",
+    "downloads",
+    "sidePanel",
+    "desktopCapture",
+    "contextMenus",
+    "clipboardWrite"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
-      "js": ["content.js"],
+      "js": [
+        "common/common_utils.js",
+        "image_previewmodal/image_previewmodal-editor-state.js",
+        "image_previewmodal/image_previewmodal-editor-math.js",
+        "image_previewmodal/image_previewmodal-editor-renderer.js",
+        "image_previewmodal/image_previewmodal-editor-popover.js",
+        "image_previewmodal/image_previewmodal-editor-overlay.js",
+        "image_previewmodal/image_previewmodal-editor-shortcuts.js",
+        "image_previewmodal/image_previewmodal-editor-export.js",
+        "image_previewmodal/image_previewmodal-editor-interaction.js",
+        "image_previewmodal/image_previewmodal-editor.js",
+        "image_previewmodal/image_previewmodal.js",
+        "4. tools-features/supportmax.js",
+        "4. tools-features/video-sound-controller.js",
+        "4. tools-features/video-controller.js",
+        "4. tools-features/sound-controller.js",
+        "4. tools-features/auto-open-image-studio.js",
+        "content_tools.js",
+        "content.js"
+      ],
+      "css": [
+        "theme.css",
+        "image_previewmodal/image_previewmodal.css",
+        "image_previewmodal/image_previewmodal-editor.css",
+        "4. tools-features/supportmax.css",
+        "4. tools-features/video-sound-controller.css"
+      ],
       "run_at": "document_idle",
-      "all_frames": true
+      "all_frames": true,
+      "match_origin_as_fallback": true
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["4. tools-features/sound-controller-main.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN",
+      "match_origin_as_fallback": true
     }
   ],
-  "permissions": [
-    "storage",
-    "sidePanel",
-    "contextMenus",
-    "activeTab"
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "Outfit/*",
+        "svg/*",
+        "theme.css",
+        "common/*",
+        "image_previewmodal/*",
+        "1. colorpicker/*",
+        "2. screencapture/*",
+        "3. multimediadownloader/*",
+        "4. tools-features/*",
+        "toolbox.html",
+        "toolbox.css",
+        "toolbox.js",
+        "popup.html",
+        "popup.css",
+        "popup.js"
+      ],
+      "matches": ["<all_urls>"]
+    }
   ],
-  "host_permissions": [
-    "https://sheets.googleapis.com/*",
-    "https://oauth2.googleapis.com/*"
-  ],
-  "side_panel": {
-    "default_path": "index.html"
-  },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self';"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
   }
 }
