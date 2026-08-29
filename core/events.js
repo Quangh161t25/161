@@ -785,7 +785,19 @@ function setupEventListeners() {
             }
         }
     });
-    // 25. Listen to Extension updates for BANG_TAM
+    // 25. Trigger OCR Scan button
+    const headerOcrBtn = document.getElementById('headerOcrBtn');
+    if (headerOcrBtn) {
+        headerOcrBtn.addEventListener('click', () => {
+            if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+                chrome.runtime.sendMessage({ action: 'START_OCR_CAPTURE_FROM_VIEW' });
+            } else {
+                alert('Tính năng Quét chữ OCR hoạt động khi chạy trên Chrome Extension.');
+            }
+        });
+    }
+
+    // 26. Listen to Extension updates for BANG_TAM
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
         chrome.runtime.onMessage.addListener((msg) => {
             if (msg && msg.action === 'BANG_TAM_UPDATED') {

@@ -127,6 +127,8 @@ function initScreenCapture() {
         captureFullPage();
       } else if (mode === 'area') {
         startCustomAreaCapture();
+      } else if (mode === 'ocr') {
+        chrome.runtime.sendMessage({ action: 'START_OCR_CAPTURE_FROM_VIEW' });
       } else if (mode === 'record') {
         chrome.runtime.sendMessage({ action: 'trigger_screen_recorder' });
       }

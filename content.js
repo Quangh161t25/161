@@ -741,6 +741,10 @@
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                 <span>Đọc</span>
             </button>
+            <button id="infosys-tb-ocr" style="background: transparent; border: none; color: #818cf8; padding: 4px 7px; border-radius: 14px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s;" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='transparent'" title="Quét chữ ảnh OCR từ vùng màn hình (Alt+Shift+O)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h3"/><path d="M20 7V4h-3"/><path d="M4 17v3h3"/><path d="M20 17v3h-3"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+                <span>OCR</span>
+            </button>
             <button id="infosys-tb-toolbox" style="background: transparent; border: none; color: #c084fc; padding: 4px 7px; border-radius: 14px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s;" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='transparent'" title="Mở ToolBox Suite (Chụp màn hình, Color Picker, Downloader)">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
                 <span>ToolBox</span>
@@ -762,6 +766,16 @@
         bar.querySelector('#infosys-tb-trans').onclick = (e) => {
             e.stopPropagation();
             showGoogleTranslateCard(rect, text);
+        };
+
+        bar.querySelector('#infosys-tb-ocr').onclick = (e) => {
+            e.stopPropagation();
+            hideFloatingWidgets();
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage({ action: 'START_OCR_CAPTURE_FROM_VIEW' });
+            } else {
+                startOcrAreaSelection();
+            }
         };
 
         bar.querySelector('#infosys-tb-toolbox').onclick = (e) => {
@@ -909,5 +923,434 @@
             doSaveToBangTam(selection);
         }, 20);
     }, true);
+
+    // ============================================================
+    //  OCR AREA SELECTION & RECOGNITION (Nhận diện chữ & Lưu Bảng tạm)
+    // ============================================================
+    function startOcrAreaSelection() {
+        hideFloatingWidgets();
+
+        const existing = document.getElementById('infosys-ocr-overlay');
+        if (existing) existing.remove();
+
+        const docEl = document.documentElement || document.body;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'infosys-ocr-overlay';
+        overlay.style.cssText = `
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 2147483647 !important;
+            cursor: crosshair !important;
+            background: rgba(15, 23, 42, 0.45) !important;
+            backdrop-filter: blur(2px) !important;
+            user-select: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        `;
+
+        const guidePill = document.createElement('div');
+        guidePill.style.cssText = `
+            position: fixed !important;
+            top: 24px !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            background: #0f172a !important;
+            color: #f8fafc !important;
+            border: 1px solid #6366f1 !important;
+            box-shadow: 0 10px 25px -5px rgba(99,102,241,0.5) !important;
+            padding: 10px 22px !important;
+            border-radius: 30px !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+            font-size: 13.5px !important;
+            font-weight: 700 !important;
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            pointer-events: none !important;
+            z-index: 2147483647 !important;
+        `;
+        guidePill.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2.5"><path d="M4 7V4h3"/><path d="M20 7V4h-3"/><path d="M4 17v3h3"/><path d="M20 17v3h-3"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+            <span>Kéo chuột chọn vùng ảnh chứa chữ để Quét OCR & Lưu Bảng tạm (Nhấn ESC để hủy)</span>
+        `;
+        overlay.appendChild(guidePill);
+
+        const box = document.createElement('div');
+        box.id = 'infosys-ocr-box';
+        box.style.cssText = `
+            position: fixed !important;
+            border: 2px dashed #818cf8 !important;
+            background: rgba(99, 102, 241, 0.15) !important;
+            box-shadow: 0 0 0 99999px rgba(0, 0, 0, 0.45), 0 0 15px rgba(99,102,241,0.6) !important;
+            display: none !important;
+            pointer-events: none !important;
+            z-index: 2147483647 !important;
+            border-radius: 4px !important;
+        `;
+
+        const sizeLabel = document.createElement('div');
+        sizeLabel.style.cssText = `
+            position: absolute !important;
+            bottom: -28px !important;
+            left: 0 !important;
+            background: #4f46e5 !important;
+            color: #ffffff !important;
+            font-family: monospace !important;
+            font-size: 11px !important;
+            font-weight: 700 !important;
+            padding: 3px 8px !important;
+            border-radius: 6px !important;
+            white-space: nowrap !important;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
+        `;
+        box.appendChild(sizeLabel);
+        overlay.appendChild(box);
+
+        docEl.appendChild(overlay);
+
+        let startX = 0, startY = 0, isDragging = false;
+
+        const onKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                cleanup();
+            }
+        };
+
+        const cleanup = () => {
+            window.removeEventListener('keydown', onKeyDown, true);
+            window.removeEventListener('mousemove', onMouseMove, true);
+            window.removeEventListener('mouseup', onMouseUp, true);
+            if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+        };
+
+        window.addEventListener('keydown', onKeyDown, true);
+
+        overlay.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            isDragging = true;
+            startX = e.clientX;
+            startY = e.clientY;
+            box.style.left = `${startX}px`;
+            box.style.top = `${startY}px`;
+            box.style.width = '0px';
+            box.style.height = '0px';
+            box.style.display = 'block';
+
+            window.addEventListener('mousemove', onMouseMove, true);
+            window.addEventListener('mouseup', onMouseUp, true);
+        }, true);
+
+        const onMouseMove = (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            e.stopPropagation();
+
+            const currentX = e.clientX;
+            const currentY = e.clientY;
+            const x = Math.min(startX, currentX);
+            const y = Math.min(startY, currentY);
+            const w = Math.abs(startX - currentX);
+            const h = Math.abs(startY - currentY);
+
+            box.style.left = `${x}px`;
+            box.style.top = `${y}px`;
+            box.style.width = `${w}px`;
+            box.style.height = `${h}px`;
+
+            sizeLabel.textContent = `${w} × ${h} px`;
+            if (y + h + 35 > window.innerHeight) {
+                sizeLabel.style.bottom = 'auto';
+                sizeLabel.style.top = '-28px';
+            } else {
+                sizeLabel.style.top = 'auto';
+                sizeLabel.style.bottom = '-28px';
+            }
+        };
+
+        const onMouseUp = (e) => {
+            if (!isDragging) return;
+            e.preventDefault();
+            e.stopPropagation();
+            isDragging = false;
+
+            const currentX = e.clientX;
+            const currentY = e.clientY;
+            const x = Math.min(startX, currentX);
+            const y = Math.min(startY, currentY);
+            const w = Math.abs(startX - currentX);
+            const h = Math.abs(startY - currentY);
+
+            cleanup();
+
+            if (w < 15 || h < 15) {
+                showToast('⚠️ Vùng chọn quá nhỏ, hãy kéo chọn vùng lớn hơn.');
+                return;
+            }
+
+            // Show loading HUD
+            showOcrLoadingHud();
+
+            // Request background to capture visible tab and return dataUrl
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage({
+                    action: 'PERFORM_OCR_TAB_CAPTURE',
+                    coords: {
+                        x: x,
+                        y: y,
+                        w: w,
+                        h: h,
+                        dpr: window.devicePixelRatio || 1
+                    }
+                });
+            }
+        };
+    }
+
+    function showOcrLoadingHud() {
+        let hud = document.getElementById('infosys-ocr-loading-hud');
+        if (!hud) {
+            hud = document.createElement('div');
+            hud.id = 'infosys-ocr-loading-hud';
+            hud.style.cssText = `
+                position: fixed !important;
+                top: 24px !important;
+                right: 24px !important;
+                background: #0f172a !important;
+                color: #ffffff !important;
+                padding: 12px 20px !important;
+                border-radius: 12px !important;
+                border: 1px solid #6366f1 !important;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+                font-size: 13.5px !important;
+                font-weight: 700 !important;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 15px rgba(99,102,241,0.4) !important;
+                z-index: 2147483647 !important;
+                display: flex !important;
+                align-items: center !important;
+                gap: 12px !important;
+                animation: infosys-fade-in 0.2s ease-out !important;
+            `;
+            (document.body || document.documentElement).appendChild(hud);
+        }
+        hud.innerHTML = `
+            <div style="width: 18px; height: 18px; border: 2.5px solid rgba(255,255,255,0.2); border-top-color: #818cf8; border-radius: 50%; animation: infosys-spin 0.8s linear infinite;"></div>
+            <span id="infosys-ocr-status-text">⏳ Đang nhận diện chữ (OCR)...</span>
+        `;
+    }
+
+    function updateOcrLoadingProgress(percent) {
+        const textEl = document.getElementById('infosys-ocr-status-text');
+        if (textEl) {
+            textEl.textContent = `⏳ Đang đọc chữ OCR (${percent}%)...`;
+        }
+    }
+
+    function hideOcrLoadingHud() {
+        const hud = document.getElementById('infosys-ocr-loading-hud');
+        if (hud) hud.remove();
+    }
+
+    async function handleOcrProcessing(dataUrl, coords) {
+        try {
+            const img = new Image();
+            img.onload = async () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = coords.w;
+                canvas.height = coords.h;
+                const ctx = canvas.getContext('2d');
+                
+                const sx = coords.x * coords.dpr;
+                const sy = coords.y * coords.dpr;
+                const sw = coords.w * coords.dpr;
+                const sh = coords.h * coords.dpr;
+
+                ctx.drawImage(img, sx, sy, sw, sh, 0, 0, coords.w, coords.h);
+
+                const croppedDataUrl = canvas.toDataURL('image/png');
+
+                // Perform OCR Recognition
+                let ocrText = '';
+
+                // Try Tesseract.js (Vietnamese + English)
+                if (typeof Tesseract !== 'undefined' && Tesseract.recognize) {
+                    try {
+                        const tesseractRes = await Tesseract.recognize(canvas, 'vie+eng', {
+                            logger: m => {
+                                if (m.status === 'recognizing text' && m.progress) {
+                                    updateOcrLoadingProgress(Math.round(m.progress * 100));
+                                }
+                            }
+                        });
+                        if (tesseractRes && tesseractRes.data && tesseractRes.data.text && tesseractRes.data.text.trim()) {
+                            ocrText = tesseractRes.data.text.trim();
+                        }
+                    } catch (tessErr) {
+                        console.warn('[OCR Tesseract]', tessErr);
+                    }
+                }
+
+                // Cloud OCR Fallback if needed
+                if (!ocrText || ocrText.length < 2) {
+                    try {
+                        const formData = new URLSearchParams();
+                        formData.append('base64Image', croppedDataUrl);
+                        formData.append('OCREngine', '2');
+                        formData.append('apikey', 'K88795898888957');
+                        
+                        const cloudRes = await fetch('https://api.ocr.space/parse/image', {
+                            method: 'POST',
+                            body: formData
+                        });
+                        const cloudJson = await cloudRes.json();
+                        if (cloudJson && cloudJson.ParsedResults && cloudJson.ParsedResults[0] && cloudJson.ParsedResults[0].ParsedText) {
+                            ocrText = cloudJson.ParsedResults[0].ParsedText.trim();
+                        }
+                    } catch (cloudErr) {
+                        console.warn('[OCR Cloud fallback]', cloudErr);
+                    }
+                }
+
+                hideOcrLoadingHud();
+
+                if (!ocrText || ocrText.trim().length === 0) {
+                    showToast('⚠️ Không tìm thấy chữ trong vùng đã chọn. Hãy thử lại với vùng rõ nét hơn.');
+                    return;
+                }
+
+                // 1. Auto save to Google Sheets BANG_TAM
+                const pageUrl = window.location.href;
+                doSaveToBangTam(ocrText, 'OCR');
+
+                // 2. Show OCR Result Card
+                showOcrResultCard(ocrText, croppedDataUrl, pageUrl);
+            };
+            img.src = dataUrl;
+        } catch (err) {
+            hideOcrLoadingHud();
+            console.error('[OCR Processing Error]', err);
+            showToast('❌ Lỗi khi xử lý OCR: ' + err.message);
+        }
+    }
+
+    function showOcrResultCard(text, imageSrc, pageUrl) {
+        const existing = document.getElementById('infosys-ocr-result-modal');
+        if (existing) existing.remove();
+
+        const card = document.createElement('div');
+        card.id = 'infosys-ocr-result-modal';
+        card.style.cssText = `
+            position: fixed !important;
+            bottom: 24px !important;
+            right: 24px !important;
+            width: 440px !important;
+            max-width: calc(100vw - 36px) !important;
+            max-height: 85vh !important;
+            background: #0f172a !important;
+            color: #f8fafc !important;
+            border: 1px solid #4f46e5 !important;
+            border-radius: 16px !important;
+            box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.7), 0 0 20px rgba(99, 102, 241, 0.3) !important;
+            z-index: 2147483647 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+            overflow: hidden !important;
+            animation: infosys-fade-in 0.25s ease-out !important;
+        `;
+
+        card.innerHTML = `
+            <div style="display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:#1e1b4b; border-bottom:1px solid rgba(99,102,241,0.3);">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#818cf8" stroke-width="2.5"><path d="M4 7V4h3"/><path d="M20 7V4h-3"/><path d="M4 17v3h3"/><path d="M20 17v3h-3"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+                    <span style="font-size:13.5px; font-weight:700; color:#c7d2fe;">Quét chữ OCR ➔ Đã lưu Bảng tạm</span>
+                </div>
+                <button id="ocr-card-close" style="background:transparent; border:none; color:#94a3b8; font-size:16px; cursor:pointer; padding:2px 6px; line-height:1; border-radius:6px;" title="Đóng">✕</button>
+            </div>
+            <div style="padding:14px 16px; overflow-y:auto; max-height:260px; display:flex; flex-direction:column; gap:10px;">
+                <textarea id="ocr-text-area" style="width:100%; height:110px; background:#090d16; border:1px solid #334155; border-radius:10px; color:#e2e8f0; font-size:13px; font-family:inherit; padding:10px; resize:vertical; box-sizing:border-box; line-height:1.5;">${escapeHtml(text)}</textarea>
+                <div style="display:flex; align-items:center; justify-content:space-between; font-size:11.5px; color:#94a3b8;">
+                    <span>📁 Tag: <b style="color:#38bdf8;">OCR</b></span>
+                    <span>🔗 URL: <b style="color:#cbd5e1;">${new URL(pageUrl).hostname}</b></span>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; padding:10px 16px; background:#111827; border-top:1px solid #1e293b; flex-wrap:wrap;">
+                <button id="ocr-btn-copy" style="flex:1; background:#4f46e5; border:none; color:#ffffff; padding:7px 10px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 2px 6px rgba(79,70,229,0.4);" title="Sao chép văn bản">
+                    📋 Sao chép
+                </button>
+                <button id="ocr-btn-speak" style="background:#1e293b; border:1px solid #334155; color:#22c55e; padding:7px 10px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px;" title="Đọc phát âm">
+                    🔊 Đọc
+                </button>
+                <button id="ocr-btn-trans" style="background:#1e293b; border:1px solid #334155; color:#38bdf8; padding:7px 10px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px;" title="Dịch Google">
+                    🌐 Dịch
+                </button>
+                <button id="ocr-btn-save-edit" style="background:#1e293b; border:1px solid #334155; color:#f59e0b; padding:7px 10px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; display:flex; align-items:center; gap:4px;" title="Cập nhật văn bản đã sửa vào Bảng tạm">
+                    💾 Cập nhật
+                </button>
+            </div>
+        `;
+
+        (document.body || document.documentElement).appendChild(card);
+
+        card.querySelector('#ocr-card-close').onclick = () => card.remove();
+
+        card.querySelector('#ocr-btn-copy').onclick = () => {
+            const currentVal = card.querySelector('#ocr-text-area').value;
+            navigator.clipboard.writeText(currentVal).then(() => {
+                showToast('📋 Đã sao chép chữ OCR vào bộ nhớ tạm!');
+            });
+        };
+
+        card.querySelector('#ocr-btn-speak').onclick = (e) => {
+            const currentVal = card.querySelector('#ocr-text-area').value;
+            speakInLang(currentVal, 'vi', e.currentTarget);
+        };
+
+        card.querySelector('#ocr-btn-trans').onclick = () => {
+            const currentVal = card.querySelector('#ocr-text-area').value;
+            const rect = card.getBoundingClientRect();
+            showGoogleTranslateCard(rect, currentVal);
+        };
+
+        card.querySelector('#ocr-btn-save-edit').onclick = () => {
+            const currentVal = card.querySelector('#ocr-text-area').value;
+            doSaveToBangTam(currentVal, 'OCR');
+            showToast('✅ Đã cập nhật văn bản OCR vào Bảng tạm!');
+        };
+    }
+
+    // Keyboard shortcut Alt + Shift + O
+    document.addEventListener('keydown', (e) => {
+        if (e.altKey && e.shiftKey && (e.key === 'O' || e.key === 'o' || e.code === 'KeyO')) {
+            e.preventDefault();
+            if (typeof chrome !== 'undefined' && chrome.runtime) {
+                chrome.runtime.sendMessage({ action: 'START_OCR_CAPTURE_FROM_VIEW' });
+            } else {
+                startOcrAreaSelection();
+            }
+        }
+    }, true);
+
+    // Extension runtime message receiver
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            if (request.action === 'START_OCR_CAPTURE') {
+                startOcrAreaSelection();
+                sendResponse({ status: 'ok' });
+            } else if (request.action === 'DO_OCR_PROCESSING') {
+                handleOcrProcessing(request.dataUrl, request.coords);
+                sendResponse({ status: 'ok' });
+            } else if (request.action === 'OCR_CAPTURE_FAILED') {
+                hideOcrLoadingHud();
+                showToast('❌ Không thể chụp màn hình để quét OCR.');
+                sendResponse({ status: 'error' });
+            }
+        });
+    }
 })();
 

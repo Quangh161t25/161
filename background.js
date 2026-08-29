@@ -228,6 +228,11 @@ chrome.runtime.onInstalled.addListener((details) => {
     // Register InfoSys context menus
     try {
         chrome.contextMenus.create({
+            id: 'ocr_selection_to_bang_tam',
+            title: '🔍 Quét chữ ảnh OCR ➔ Lưu Bảng tạm',
+            contexts: ['all']
+        });
+        chrome.contextMenus.create({
             id: 'save_selection_to_bang_tam',
             title: '📥 Lưu vào Bảng tạm (InfoSys)',
             contexts: ['selection', 'link', 'page']
@@ -264,14 +269,16 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     }
 });
 
-// Global keyboard shortcuts (Alt+Shift+Z/X/C/V)
+// Global keyboard shortcuts (Alt+Shift+O / Alt+Shift+Z/X/C/V)
 if (typeof chrome !== 'undefined' && chrome.commands && chrome.commands.onCommand) {
     chrome.commands.onCommand.addListener((command) => {
         chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
             let tab = tabs && tabs[0];
             const executeCommand = (activeTab) => {
                 if (!activeTab || !activeTab.id) return;
-                if (command === 'capture_area') {
+                if (command === 'capture_ocr') {
+                    chrome.tabs.sendMessage(activeTab.id, { action: 'START_OCR_CAPTURE' }).catch(() => {});
+                } else if (command === 'capture_area') {
                     if (typeof createSelectionOverlay === 'function') {
                         chrome.scripting.executeScript({
                             target: { tabId: activeTab.id },
@@ -299,7 +306,11 @@ if (typeof chrome !== 'undefined' && chrome.commands && chrome.commands.onComman
 
 // --- Context Menus Click Handler ---
 chrome.contextMenus.onClicked.addListener((info, tab) => {
-    if (info.menuItemId === 'save_selection_to_bang_tam') {
+    if (info.menuItemId === 'ocr_selection_to_bang_tam') {
+        if (tab && tab.id) {
+            chrome.tabs.sendMessage(tab.id, { action: 'START_OCR_CAPTURE' }).catch(() => {});
+        }
+    } else if (info.menuItemId === 'save_selection_to_bang_tam') {
         const text = info.selectionText || info.linkUrl || (tab ? tab.title : '') || '';
         const url = info.pageUrl || (tab ? tab.url : '') || '';
         saveToBangTam(text, url);
@@ -388,12 +399,116 @@ async function handleTranslateApi(text, targetLang = 'vi') {
     throw new Error('Không thể dịch tự động. Vui lòng kiểm tra lại mạng.');
 }
 
+// --- Integrated OCR WebAssembly Engine ---
+async function triggerOcrEngine(tabId) {
+    if (!tabId) return;
+    try {
+        await chrome.scripting.insertCSS({
+            target: { tabId },
+            files: ['data/inject/inject.css']
+        });
+        await chrome.scripting.executeScript({
+            target: { tabId },
+            files: ['data/inject/inject.js']
+        });
+    } catch (e) {
+        console.warn('triggerOcrEngine error:', e);
+    }
+}
+
 // --- Combined Message Dispatcher ---
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (!message || !message.action) return;
+    if (!message) return;
 
-    // 1. InfoSys Handlers
-    if (message.action === 'AUTO_COPY_SAVE') {
+    // OCR Engine specific methods
+    if (message.method === 'captured') {
+        const { devicePixelRatio, left, top, width, height } = message;
+        const tabId = sender.tab ? sender.tab.id : null;
+        const windowId = sender.tab ? sender.tab.windowId : null;
+
+        if (tabId && width && height) {
+            chrome.tabs.captureVisibleTab(windowId, { format: 'png' }, async href => {
+                try {
+                    const target = { tabId };
+                    await chrome.scripting.executeScript({
+                        target,
+                        files: ['data/inject/elements.js'],
+                        world: 'MAIN'
+                    });
+                    await chrome.scripting.executeScript({
+                        target,
+                        files: ['data/engine/helper.js']
+                    });
+                    await chrome.scripting.executeScript({
+                        target,
+                        files: ['data/inject/response.js']
+                    });
+
+                    chrome.storage.local.get({
+                        'post-method': 'POST',
+                        'post-href': '',
+                        'post-body': '',
+                        'lang': 'vie',
+                        'frequently-used': ['vie', 'eng', 'fra', 'deu', 'rus', 'ara', 'jpn', 'kor', 'chi_sim'],
+                        'accuracy': '4.0.0'
+                    }, prefs => chrome.scripting.executeScript({
+                        target,
+                        func: (prefs, href, box) => {
+                            const em = document.querySelector('ocr-result:last-of-type');
+                            if (em) {
+                                em.command('configure', prefs);
+                                em.command('prepare');
+                                em.href = href;
+                                em.box = box;
+                                em.run();
+                            }
+                        },
+                        args: [prefs, href, {
+                            width: width * (devicePixelRatio || 1),
+                            height: height * (devicePixelRatio || 1),
+                            left: left * (devicePixelRatio || 1),
+                            top: top * (devicePixelRatio || 1)
+                        }]
+                    }));
+                } catch (err) {
+                    console.error('OCR engine execution error:', err);
+                }
+            });
+        }
+        return true;
+    } else if (message.method === 'open-link') {
+        if (sender.tab) {
+            chrome.tabs.create({ url: message.href, index: sender.tab.index + 1 });
+        }
+        return true;
+    } else if (message.method === 'remove-indexeddb') {
+        caches.delete('traineddata').finally(() => {
+            if (sendResponse) sendResponse();
+        });
+        if (typeof indexedDB !== 'undefined' && indexedDB.databases) {
+            indexedDB.databases().then(as => {
+                for (const { name } of as) {
+                    indexedDB.deleteDatabase(name);
+                }
+            });
+        }
+        return true;
+    }
+
+    // InfoSys / ToolBox Action Handlers
+    if (message.action === 'START_OCR_CAPTURE_FROM_VIEW' || message.action === 'START_OCR_CAPTURE') {
+        const targetTabId = (sender.tab && sender.tab.id) || null;
+        if (targetTabId) {
+            triggerOcrEngine(targetTabId);
+        } else {
+            chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+                if (tabs && tabs[0] && tabs[0].id) {
+                    triggerOcrEngine(tabs[0].id);
+                }
+            });
+        }
+        return true;
+    } else if (message.action === 'AUTO_COPY_SAVE') {
         const { text, url, tag } = message.data || {};
         saveToBangTam(text, url, tag).then(success => {
             sendResponse({ success });

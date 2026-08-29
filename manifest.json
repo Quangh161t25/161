@@ -23,6 +23,8 @@
     "tabs",
     "scripting",
     "storage",
+    "unlimitedStorage",
+    "notifications",
     "debugger",
     "downloads",
     "sidePanel",
@@ -33,12 +35,15 @@
   "host_permissions": [
     "https://sheets.googleapis.com/*",
     "https://oauth2.googleapis.com/*",
+    "https://tessdata.projectnaptha.com/*.gz",
+    "https://github.com/naptha/tessdata/blob/gh-pages/*.gz?raw=true",
     "<all_urls>"
   ],
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
       "js": [
+        "lib/tesseract.min.js",
         "common/common_utils.js",
         "image_previewmodal/image_previewmodal-editor-state.js",
         "image_previewmodal/image_previewmodal-editor-math.js",
@@ -72,6 +77,10 @@
   "web_accessible_resources": [
     {
       "resources": [
+        "data/*",
+        "data/engine/*",
+        "data/engine/index.html",
+        "lib/*",
         "Outfit/*",
         "svg/*",
         "theme.css",
@@ -91,7 +100,33 @@
       "matches": ["<all_urls>"]
     }
   ],
+  "commands": {
+    "capture_ocr": {
+      "suggested_key": {
+        "default": "Alt+Shift+O"
+      },
+      "description": "Quét chữ ảnh OCR & Lưu vào Bảng tạm"
+    },
+    "capture_area": {
+      "suggested_key": {
+        "default": "Alt+Shift+Z"
+      },
+      "description": "Chụp vùng tùy chọn"
+    },
+    "capture_visible": {
+      "suggested_key": {
+        "default": "Alt+Shift+X"
+      },
+      "description": "Chụp phần hiển thị"
+    },
+    "capture_full": {
+      "suggested_key": {
+        "default": "Alt+Shift+C"
+      },
+      "description": "Chụp toàn bộ trang"
+    }
+  },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self';"
+    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
   }
 }
