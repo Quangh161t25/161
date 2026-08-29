@@ -24,7 +24,7 @@ async function fetchData(forceReload = false) {
                 if (dateA !== dateB && dateA !== 0 && dateB !== 0) return dateB - dateA;
                 return b._sheetRow - a._sheetRow;
             });
-        } else if (currentTab === 'BANG_TAM') {
+        } else if (currentTab === 'BANG_TAM' || currentTab === 'THAO_TAC') {
             allData.sort((a, b) => {
                 const dateB = parseSheetDate(b[2]) || parseSheetDate(b[1]);
                 const dateA = parseSheetDate(a[2]) || parseSheetDate(a[1]);
@@ -73,7 +73,7 @@ async function fetchData(forceReload = false) {
                 if (dateA !== dateB && dateA !== 0 && dateB !== 0) return dateB - dateA;
                 return b._sheetRow - a._sheetRow;
             });
-        } else if (currentTab === 'BANG_TAM') {
+        } else if (currentTab === 'BANG_TAM' || currentTab === 'THAO_TAC') {
             allData.sort((a, b) => {
                 const dateB = parseSheetDate(b[2]) || parseSheetDate(b[1]);
                 const dateA = parseSheetDate(a[2]) || parseSheetDate(a[1]);

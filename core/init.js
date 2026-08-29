@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
     document.getElementById('loading').style.display = 'none';
     if (window.updateGlobalFloatingButtonUI) window.updateGlobalFloatingButtonUI();
+    if (window.updateActionRecorderButtonUI) window.updateActionRecorderButtonUI();
     if (typeof getAccessToken === 'function') getAccessToken().catch(() => {});
     switchTab('LICH');
     // Request Notification Permission

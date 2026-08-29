@@ -60,6 +60,10 @@ sR2Sh8e3h3Knd6j1tceRIFU=
         'BANG_TAM': {
             range: 'BANG_TAM!A2:F',
             headers: ['id', 'ngay', 'ngay_gio', 'ghi_chu', 'noi_dung', 'tag']
+        },
+        'THAO_TAC': {
+            range: 'THAO_TAC!A2:J',
+            headers: ['id', 'ngay', 'ngay_gio', 'loai_thao_tac', 'doi_tuong', 'noi_dung', 'tieu_de_trang', 'url_trang', 'thong_tin_them', 'trang_thai']
         }
     }
 };
@@ -93,19 +97,39 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
                 renderTabFilters();
             }
         }
+        if (res && res.infosys_action_recorder_enabled !== undefined) {
+            window.isActionRecorderEnabled = res.infosys_action_recorder_enabled === true;
+            try {
+                localStorage.setItem('infosys_action_recorder_enabled', String(window.isActionRecorderEnabled));
+            } catch (e) {}
+            if (typeof updateActionRecorderButtonUI === 'function') {
+                updateActionRecorderButtonUI();
+            }
+        }
     });
 
     chrome.storage.onChanged.addListener((changes, area) => {
-        if (area === 'local' && changes.infosys_floating_icon_enabled !== undefined) {
-            window.isFloatingIconEnabled = changes.infosys_floating_icon_enabled.newValue !== false;
-            try {
-                localStorage.setItem('infosys_floating_icon_enabled', String(window.isFloatingIconEnabled));
-            } catch (e) {}
-            if (typeof updateGlobalFloatingButtonUI === 'function') {
-                updateGlobalFloatingButtonUI();
+        if (area === 'local') {
+            if (changes.infosys_floating_icon_enabled !== undefined) {
+                window.isFloatingIconEnabled = changes.infosys_floating_icon_enabled.newValue !== false;
+                try {
+                    localStorage.setItem('infosys_floating_icon_enabled', String(window.isFloatingIconEnabled));
+                } catch (e) {}
+                if (typeof updateGlobalFloatingButtonUI === 'function') {
+                    updateGlobalFloatingButtonUI();
+                }
+                if (window.currentTab === 'BANG_TAM' && typeof renderTabFilters === 'function') {
+                    renderTabFilters();
+                }
             }
-            if (window.currentTab === 'BANG_TAM' && typeof renderTabFilters === 'function') {
-                renderTabFilters();
+            if (changes.infosys_action_recorder_enabled !== undefined) {
+                window.isActionRecorderEnabled = changes.infosys_action_recorder_enabled.newValue === true;
+                try {
+                    localStorage.setItem('infosys_action_recorder_enabled', String(window.isActionRecorderEnabled));
+                } catch (e) {}
+                if (typeof updateActionRecorderButtonUI === 'function') {
+                    updateActionRecorderButtonUI();
+                }
             }
         }
     });

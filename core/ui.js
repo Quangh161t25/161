@@ -104,7 +104,7 @@ async function switchTab(tabName) {
         if(searchInput) searchInput.style.display = 'flex';
         if(dateFilters) dateFilters.style.display = currentView === 'DSNV' ? 'none' : 'flex';
         const addBtn = document.querySelector('.add-btn');
-        if (addBtn) addBtn.style.display = 'inline-flex';
+        if (addBtn) addBtn.style.display = currentView === 'THAO_TAC' ? 'none' : 'inline-flex';
     }
     
     await fetchData();
@@ -158,6 +158,7 @@ function renderHeaders() {
     if (currentTab !== 'HOC_HOI' && currentTab !== 'CONG_VIEC' && currentTab !== 'DSNV' && currentTab !== 'MK') hiddenCols.push('anh', 'hinh_anh', 'anh_2');
     if (currentTab === 'HOC_HOI') hiddenCols.push('file');
     if (currentTab === 'BANG_TAM') hiddenCols.push('ngay', 'ngay_gio');
+    if (currentTab === 'THAO_TAC') hiddenCols.push('id', 'ngay', 'thong_tin_them', 'trang_thai');
     const ths = CONFIG.tabs[currentTab].headers.map((h, i) => {
         if (i === 0 || hiddenCols.includes(h)) return '';
         let style = '';
@@ -184,6 +185,13 @@ function renderHeaders() {
             if (h === 'ghi_chu') style = 'style="width: auto; min-width: 140px;"';
             else if (h === 'noi_dung') style = 'style="width: 95px; min-width: 80px; max-width: 105px;"';
             else if (h === 'tag') style = 'style="width: 75px; min-width: 65px; max-width: 80px; text-align: center;"';
+        } else if (currentTab === 'THAO_TAC') {
+            if (h === 'ngay_gio') style = 'style="width: 130px; min-width: 120px; white-space: nowrap;"';
+            else if (h === 'loai_thao_tac') style = 'style="width: 110px; min-width: 100px; text-align: center;"';
+            else if (h === 'doi_tuong') style = 'style="width: 140px; min-width: 120px;"';
+            else if (h === 'noi_dung') style = 'style="width: auto; min-width: 160px;"';
+            else if (h === 'tieu_de_trang') style = 'style="width: 150px; min-width: 130px;"';
+            else if (h === 'url_trang') style = 'style="width: 110px; min-width: 95px;"';
         }
         
         let sortHtml = '';
@@ -197,8 +205,21 @@ function renderHeaders() {
             </span>`;
         }
         
+        let headerLabel = h.toUpperCase();
+        if (currentTab === 'THAO_TAC') {
+            const headerDict = {
+                'ngay_gio': 'THỜI GIAN',
+                'loai_thao_tac': 'LOẠI THAO TÁC',
+                'doi_tuong': 'ĐỐI TƯỢNG',
+                'noi_dung': 'NỘI DUNG / LINK',
+                'tieu_de_trang': 'TIÊU ĐỀ TRANG',
+                'url_trang': 'TRANG WEB'
+            };
+            if (headerDict[h]) headerLabel = headerDict[h];
+        }
+
         const alignHeader = (currentTab === 'HOC_HOI' && (h === 'anh' || h === 'hinh_anh')) ? 'justify-content:center;' : '';
-        return `<th ${style}><div style="display:flex; align-items:center; ${alignHeader}">${h.toUpperCase()}${sortHtml}</div></th>`;
+        return `<th ${style}><div style="display:flex; align-items:center; ${alignHeader}">${headerLabel}${sortHtml}</div></th>`;
     }).join('');
     head.innerHTML = `<tr><th style="width: 36px; min-width: 36px; max-width: 36px; text-align: center; padding: 11px 4px;"><input type="checkbox" id="selectAll" ></th>${ths}</tr>`;
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -214,6 +235,7 @@ function renderTable() {
     if (currentTab !== 'HOC_HOI' && currentTab !== 'CONG_VIEC' && currentTab !== 'DSNV' && currentTab !== 'MK') hiddenCols.push('anh', 'hinh_anh', 'anh_2');
     if (currentTab === 'HOC_HOI') hiddenCols.push('file');
     if (currentTab === 'BANG_TAM') hiddenCols.push('ngay', 'ngay_gio');
+    if (currentTab === 'THAO_TAC') hiddenCols.push('id', 'ngay', 'thong_tin_them', 'trang_thai');
     const start = (currentPage - 1) * rowsPerPage;
     const end = start + rowsPerPage;
     const pageData = filteredData.slice(start, end);
@@ -284,7 +306,7 @@ function renderTable() {
             
             let groupHeaderHtml = '';
             let dateVal = '';
-            if (currentTab === 'BANG_TAM') {
+            if (currentTab === 'BANG_TAM' || currentTab === 'THAO_TAC') {
                 dateVal = String(row[1] || '').trim().split(' ')[0] || 'Chưa có ngày';
                 if (dateVal !== lastDateGroup) {
                     lastDateGroup = dateVal;
@@ -498,6 +520,11 @@ function renderTable() {
                         </div>
                         <div id="trans_box_${sheetRow}" class="trans-result-card" style="display:none; margin-top:6px; padding:6px 10px; background:#f5f3ff; border:1px solid #ddd6fe; border-radius:6px; font-size:0.83rem; color:#4c1d95; line-height:1.45;"></div>`;
                         return `<td ${tdStyle}>${cellVal}</td>`;
+                    }
+                } else if (currentTab === 'THAO_TAC') {
+                    if (typeof renderThaoTacCustomCell === 'function') {
+                        const customTd = renderThaoTacCustomCell(h, cellVal, sheetRow, row);
+                        if (customTd !== null) return customTd;
                     }
                 } else if (currentTab === 'DSNV') {
                     if (h === 'hashtag') {
@@ -745,6 +772,9 @@ function filterTable() {
                 const tags = String(row[colIndex] || '').split(',').map(s => s.trim());
                 phanLoaiMatch = activePhanLoaiFilter.some(filterTag => tags.includes(filterTag));
             }
+        } else if (activePhanLoaiFilter && activePhanLoaiFilter.length > 0 && currentTab === 'THAO_TAC') {
+            const colIndex = CONFIG.tabs[currentTab].headers.indexOf('loai_thao_tac');
+            phanLoaiMatch = colIndex !== -1 && activePhanLoaiFilter.includes(row[colIndex]);
         }
 
         let expenseMatch = true;
@@ -907,6 +937,42 @@ function renderTabFilters() {
 
         container.innerHTML = `<div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; width:100%;">${tagsHtml}${extraControlsHtml}</div>`;
         if (typeof lucide !== 'undefined') lucide.createIcons();
+    } else if (currentTab === 'THAO_TAC') {
+        const tabConfig = CONFIG.tabs[currentTab];
+        const colIndex = tabConfig.headers.indexOf('loai_thao_tac');
+        let tagsHtml = '';
+        if (colIndex !== -1) {
+            const allTypes = allData.map(row => row[colIndex]).filter(v => v && typeof v === 'string' && v.trim() !== '');
+            const existingVals = new Set(allTypes);
+
+            let btnHtml = `<div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">`;
+            btnHtml += `<span style="font-size:12px; color:#64748b; font-weight:700;"><i data-lucide="filter" style="width:13px; height:13px; vertical-align:middle;"></i> LOẠI THAO TÁC:</span>`;
+            btnHtml += `<button class="tag-btn ${activePhanLoaiFilter.length === 0 ? 'active' : ''}" data-action="set-phan-loai-filter" data-val="" style="padding:4px 10px; font-size:12px; border-radius:12px; font-weight:600; ${activePhanLoaiFilter.length === 0 ? 'background-color: var(--primary); color: white;' : ''}">Tất cả</button>`;
+
+            Array.from(existingVals).forEach(v => {
+                const isActive = activePhanLoaiFilter.includes(v);
+                const style = isActive ? 'background-color: var(--primary); color: white;' : '';
+                btnHtml += `<button class="tag-btn ${isActive ? 'active' : ''}" onclick="setPhanLoaiFilter('${v.replace(/'/g, "\\'")}')" style="padding:4px 10px; font-size:12px; border-radius:12px; font-weight:600; ${style}">${v}</button>`;
+            });
+            btnHtml += `</div>`;
+            tagsHtml = btnHtml;
+        }
+
+        const isRecActive = window.isActionRecorderEnabled === true;
+        const recBadge = isRecActive 
+            ? `<span style="background:#fef2f2; color:#dc2626; border:1px solid #fecdd3; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:700; display:inline-flex; align-items:center; gap:5px;"><i data-lucide="radio" style="width:13px; height:13px; color:#ef4444; animation:infosys-pulse 1.5s infinite;"></i> Đang ghi thao tác</span>`
+            : `<span style="background:#f8fafc; color:#64748b; border:1px solid #e2e8f0; padding:4px 10px; border-radius:12px; font-size:12px; font-weight:600; display:inline-flex; align-items:center; gap:5px;"><i data-lucide="circle-dot" style="width:13px; height:13px; color:#94a3b8;"></i> Ghi thao tác đang tắt</span>`;
+
+        container.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; width:100%; flex-wrap:wrap; gap:10px; margin-bottom:8px;">
+                <div>${tagsHtml}</div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    ${recBadge}
+                </div>
+            </div>
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
     } else {
         container.innerHTML = '';
     }

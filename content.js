@@ -42,15 +42,22 @@
 
     const QUICK_TAGS = ['Từ vựng', 'Ghi chú', 'Quan trọng', 'Học hỏi', 'Công việc', 'Dịch thuật'];
 
+    let isActionRecorderActive = false;
+    let pageVisitLogged = false;
+
     // Load initial settings from Extension storage
     if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-        chrome.storage.local.get(['infosys_floating_icon_enabled', 'infosys_tts_rate', 'infosys_tts_voice', 'infosys_tts_pitch', 'infosys_target_lang'], (res) => {
+        chrome.storage.local.get(['infosys_floating_icon_enabled', 'infosys_tts_rate', 'infosys_tts_voice', 'infosys_tts_pitch', 'infosys_target_lang', 'infosys_action_recorder_enabled'], (res) => {
             if (res) {
                 if (res.infosys_floating_icon_enabled !== undefined) isFloatingEnabled = res.infosys_floating_icon_enabled !== false;
                 if (res.infosys_tts_rate !== undefined) ttsConfig.rate = parseFloat(res.infosys_tts_rate) || 1.0;
                 if (res.infosys_tts_voice !== undefined) ttsConfig.voiceURI = res.infosys_tts_voice || '';
                 if (res.infosys_tts_pitch !== undefined) ttsConfig.pitch = parseFloat(res.infosys_tts_pitch) || 1.0;
                 if (res.infosys_target_lang) currentTargetLang = res.infosys_target_lang;
+                if (res.infosys_action_recorder_enabled !== undefined) {
+                    isActionRecorderActive = res.infosys_action_recorder_enabled === true;
+                    if (isActionRecorderActive) logInitialPageVisit();
+                }
             }
         });
 
@@ -64,6 +71,10 @@
                 if (changes.infosys_tts_voice) ttsConfig.voiceURI = changes.infosys_tts_voice.newValue || '';
                 if (changes.infosys_tts_pitch) ttsConfig.pitch = parseFloat(changes.infosys_tts_pitch.newValue) || 1.0;
                 if (changes.infosys_target_lang) currentTargetLang = changes.infosys_target_lang.newValue || 'vi';
+                if (changes.infosys_action_recorder_enabled !== undefined) {
+                    isActionRecorderActive = changes.infosys_action_recorder_enabled.newValue === true;
+                    if (isActionRecorderActive) logInitialPageVisit();
+                }
                 updateSpeedPillsUI();
             }
         });
@@ -111,9 +122,127 @@
                 if (text) {
                     speakInLang(text, 'vi', null);
                 }
+            } else if (msg && msg.action === 'ACTION_RECORDER_STATE_CHANGED') {
+                isActionRecorderActive = msg.enabled === true;
+                if (isActionRecorderActive) {
+                    logInitialPageVisit();
+                    showToast('🔴 Đang ghi lại thao tác duyệt web');
+                } else {
+                    showToast('⏹️ Đã tắt ghi thao tác');
+                }
             }
         });
     }
+
+    // ============================================================
+    //  ACTION RECORDER ENGINE (Theo dõi & Gửi thao tác sang Background)
+    // ============================================================
+    function isEventInsideExtensionUI(target) {
+        if (!target || !target.closest) return false;
+        return !!target.closest('#infosys-floating-toolbar, #infosys-translate-card, #infosys-ocr-result-modal, #infosys-ocr-overlay, #infosys-copy-toast, ocr-container, #infosys-ocr-loading-hud');
+    }
+
+    function sendActionToBackground(loai_thao_tac, doi_tuong, noi_dung, thong_tin_them = '') {
+        if (!isActionRecorderActive) return;
+        try {
+            if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+                chrome.runtime.sendMessage({
+                    action: 'LOG_USER_ACTION',
+                    data: {
+                        loai_thao_tac,
+                        doi_tuong: String(doi_tuong || '').substring(0, 200),
+                        noi_dung: String(noi_dung || '').substring(0, 1000),
+                        tieu_de_trang: document.title || '',
+                        url_trang: window.location.href || '',
+                        thong_tin_them: String(thong_tin_them || '').substring(0, 300)
+                    }
+                }).catch(() => {});
+            }
+        } catch (e) {}
+    }
+
+    function logInitialPageVisit() {
+        if (!isActionRecorderActive || pageVisitLogged) return;
+        pageVisitLogged = true;
+        sendActionToBackground('TRUY_CAP', 'Mở trang web', window.location.href, document.title);
+    }
+
+    // 1. Click tracker
+    document.addEventListener('click', (e) => {
+        if (!isActionRecorderActive || isEventInsideExtensionUI(e.target)) return;
+
+        const target = e.target;
+        const link = target.closest('a');
+        if (link) {
+            const text = link.innerText.trim() || link.title || link.getAttribute('aria-label') || 'Liên kết';
+            sendActionToBackground('CLICK_LINK', text, link.href, link.id ? '#' + link.id : link.className);
+            return;
+        }
+
+        const btn = target.closest('button, input[type="button"], input[type="submit"], [role="button"]');
+        if (btn) {
+            const text = btn.innerText.trim() || btn.value || btn.title || btn.getAttribute('aria-label') || 'Nút bấm';
+            const info = (btn.id ? '#' + btn.id : '') + (btn.className ? ' .' + btn.className.split(' ').slice(0, 2).join('.') : '');
+            sendActionToBackground('CLICK_NUT', text, info || btn.tagName, btn.type || '');
+            return;
+        }
+
+        const interactive = target.closest('summary, label, select, [data-action], [tabindex]');
+        if (interactive) {
+            const text = interactive.innerText.trim() || interactive.title || interactive.getAttribute('aria-label') || interactive.tagName;
+            sendActionToBackground('CLICK_PHAN_TU', text, interactive.tagName, interactive.id || '');
+        }
+    }, true);
+
+    // 2. Input / Typing tracker (debounced)
+    let inputDebounceTimers = new Map();
+    document.addEventListener('input', (e) => {
+        if (!isActionRecorderActive || isEventInsideExtensionUI(e.target)) return;
+        const target = e.target;
+        if (target.type === 'password') return;
+
+        const isInputable = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
+        if (!isInputable) return;
+
+        const fieldName = target.name || target.placeholder || target.id || target.getAttribute('aria-label') || (target.tagName.toLowerCase());
+        const val = target.isContentEditable ? target.innerText.trim() : (target.value || '').trim();
+
+        if (inputDebounceTimers.has(target)) {
+            clearTimeout(inputDebounceTimers.get(target));
+        }
+
+        const timer = setTimeout(() => {
+            inputDebounceTimers.delete(target);
+            if (val.length > 0) {
+                sendActionToBackground('NHAP_LIEU', fieldName, val, target.id ? '#' + target.id : '');
+            }
+        }, 1200);
+
+        inputDebounceTimers.set(target, timer);
+    }, true);
+
+    // 3. Form Submit tracker
+    document.addEventListener('submit', (e) => {
+        if (!isActionRecorderActive || isEventInsideExtensionUI(e.target)) return;
+        const form = e.target;
+        const formName = form.name || form.id || form.getAttribute('aria-label') || 'Biểu mẫu';
+        sendActionToBackground('SUBMIT_FORM', formName, form.action || window.location.href, form.method || 'POST');
+    }, true);
+
+    // 4. Paste tracker
+    document.addEventListener('paste', (e) => {
+        if (!isActionRecorderActive || isEventInsideExtensionUI(e.target)) return;
+        const target = e.target;
+        if (target && target.type === 'password') return;
+
+        try {
+            const pasted = (e.clipboardData || window.clipboardData)?.getData('text');
+            if (pasted && pasted.trim()) {
+                const fieldName = target ? (target.name || target.placeholder || target.id || 'Vùng dán') : 'Trang web';
+                sendActionToBackground('PASTE', fieldName, pasted.trim().substring(0, 500), '');
+            }
+        } catch (err) {}
+    }, true);
 
     // Toast notification UI
     function showToast(msg = 'Đã lưu vào Bảng tạm') {

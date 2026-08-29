@@ -797,12 +797,39 @@ function setupEventListeners() {
         });
     }
 
-    // 26. Listen to Extension updates for BANG_TAM
+    // 25b. Action Recorder Toggle Button
+    const toggleRecBtn = document.getElementById('toggleRecorderBtn');
+    if (toggleRecBtn) {
+        toggleRecBtn.addEventListener('click', () => {
+            const nextState = !window.isActionRecorderEnabled;
+            window.isActionRecorderEnabled = nextState;
+            try {
+                localStorage.setItem('infosys_action_recorder_enabled', String(nextState));
+            } catch(e) {}
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                chrome.storage.local.set({ infosys_action_recorder_enabled: nextState });
+            }
+            if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+                chrome.runtime.sendMessage({ action: 'TOGGLE_ACTION_RECORDER', enabled: nextState });
+            }
+            if (typeof updateActionRecorderButtonUI === 'function') {
+                updateActionRecorderButtonUI();
+            }
+            showInfoToast(nextState ? '🔴 Đã BẬT ghi lại thao tác duyệt web' : '⏹️ Đã TẮT ghi thao tác');
+        });
+    }
+
+    // 26. Listen to Extension updates for BANG_TAM & THAO_TAC
     if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.onMessage) {
         chrome.runtime.onMessage.addListener((msg) => {
             if (msg && msg.action === 'BANG_TAM_UPDATED') {
                 window.cachedData['BANG_TAM'] = null;
                 if (currentTab === 'BANG_TAM') {
+                    fetchData(true);
+                }
+            } else if (msg && msg.action === 'THAO_TAC_UPDATED') {
+                window.cachedData['THAO_TAC'] = null;
+                if (currentTab === 'THAO_TAC') {
                     fetchData(true);
                 }
             }

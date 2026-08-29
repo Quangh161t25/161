@@ -84,6 +84,10 @@
                     <i data-lucide="clipboard-list" style="width:18px;height:18px;"></i>
                     <span>Bảng tạm</span>
                 </div>
+                <div class="tab" id="tab_THAO_TAC" data-tab="THAO_TAC" >
+                    <i data-lucide="activity" style="width:18px;height:18px;"></i>
+                    <span>Thao tác</span>
+                </div>
                 <div class="tab" id="tab_MK" data-tab="MK" >
                     <i data-lucide="key" style="width:18px;height:18px;"></i>
                     <span>Mật khẩu</span>
@@ -173,6 +177,13 @@
                         title="Quét chữ OCR từ ảnh màn hình & Lưu vào Bảng tạm (Alt+Shift+O)">
                         <i data-lucide="scan-text" style="width:14px; height:14px;"></i>
                         <span>Quét chữ OCR</span>
+                    </button>
+
+                    <button id="toggleRecorderBtn" type="button" data-action="toggle-action-recorder"
+                        style="background:#ffffff; border:1px solid #cbd5e1; padding:7px 11px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.8rem; display:inline-flex; align-items:center; gap:5px; color:#334155;" 
+                        title="Bật/Tắt tự động ghi lại thao tác duyệt web & lưu vào sheet THAO_TAC">
+                        <i data-lucide="circle-dot" style="width:14px; height:14px; color:#94a3b8;"></i>
+                        <span id="toggleRecorderText">Ghi thao tác: TẮT</span>
                     </button>
 
                     <button id="viewToggleBtn" type="button" 
@@ -417,22 +428,23 @@
     </div>
 
     <!-- Scripts -->
-    <script src="core/globals.js?v=20260829_06"></script>
-    <script src="core/utils.js?v=20260829_06"></script>
-    <script src="core/api.js?v=20260829_06"></script>
-    <script src="core/ui.js?v=20260829_06"></script>
-    <script src="modules/chi_tieu.js?v=20260829_06"></script>
-    <script src="modules/cong_viec.js?v=20260829_06"></script>
-    <script src="modules/ghi_chu.js?v=20260829_06"></script>
-    <script src="modules/mk.js?v=20260829_06"></script>
-    <script src="modules/thong_ke.js?v=20260829_06"></script>
-    <script src="modules/nhac_nho.js?v=20260829_06"></script>
-    <script src="calendar.js?v=20260829_06"></script>
-    <script src="core/init.js?v=20260829_06"></script>
+    <script src="core/globals.js?v=20260829_08"></script>
+    <script src="core/utils.js?v=20260829_08"></script>
+    <script src="core/api.js?v=20260829_08"></script>
+    <script src="core/ui.js?v=20260829_08"></script>
+    <script src="modules/chi_tieu.js?v=20260829_08"></script>
+    <script src="modules/cong_viec.js?v=20260829_08"></script>
+    <script src="modules/ghi_chu.js?v=20260829_08"></script>
+    <script src="modules/thao_tac.js?v=20260829_08"></script>
+    <script src="modules/mk.js?v=20260829_08"></script>
+    <script src="modules/thong_ke.js?v=20260829_08"></script>
+    <script src="modules/nhac_nho.js?v=20260829_08"></script>
+    <script src="calendar.js?v=20260829_08"></script>
+    <script src="core/init.js?v=20260829_08"></script>
 
     <!-- PWA: Service Worker + Notifications -->
-    <script src="core/pwa.js?v=20260829_06"></script>
-    <script src="core/events.js?v=20260829_06"></script>
+    <script src="core/pwa.js?v=20260829_08"></script>
+    <script src="core/events.js?v=20260829_08"></script>
 </body>
 
 </html>

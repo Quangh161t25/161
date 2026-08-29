@@ -205,6 +205,77 @@ async function saveToBangTam(text, url, customTag = null) {
     }
 }
 
+// ============================================================
+//  ACTION RECORDER ENGINE (Ghi lại thao tác vào Sheet THAO_TAC)
+// ============================================================
+let isActionRecorderActive = false;
+let actionRecordBuffer = [];
+let actionFlushTimer = null;
+
+if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+    chrome.storage.local.get({ infosys_action_recorder_enabled: false }, (data) => {
+        isActionRecorderActive = data.infosys_action_recorder_enabled === true;
+    });
+}
+
+function bufferUserAction(actionData) {
+    if (!actionData) return;
+    const { ngay, ngay_gio } = getFormattedDateTime();
+    const id = 'TT_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    const loai_thao_tac = actionData.loai_thao_tac || 'CLICK';
+    const doi_tuong = actionData.doi_tuong || '';
+    const noi_dung = actionData.noi_dung || '';
+    const tieu_de_trang = actionData.tieu_de_trang || '';
+    const url_trang = actionData.url_trang || '';
+    const thong_tin_them = actionData.thong_tin_them || '';
+    const trang_thai = 'Đã ghi';
+
+    const row = [id, ngay, ngay_gio, loai_thao_tac, doi_tuong, noi_dung, tieu_de_trang, url_trang, thong_tin_them, trang_thai];
+    actionRecordBuffer.push(row);
+
+    if (actionRecordBuffer.length >= 8) {
+        flushActionBuffer();
+    } else if (!actionFlushTimer) {
+        actionFlushTimer = setTimeout(() => {
+            actionFlushTimer = null;
+            flushActionBuffer();
+        }, 7000);
+    }
+}
+
+async function flushActionBuffer() {
+    if (actionRecordBuffer.length === 0) return true;
+    const rowsToWrite = [...actionRecordBuffer];
+    actionRecordBuffer = [];
+
+    try {
+        const token = await getAccessToken();
+        const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/THAO_TAC!A2:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                values: rowsToWrite
+            })
+        });
+
+        if (!res.ok) {
+            console.warn('Lỗi append THAO_TAC batch, hoàn lại buffer:', await res.text().catch(() => ''));
+            actionRecordBuffer = [...rowsToWrite, ...actionRecordBuffer];
+            return false;
+        }
+
+        chrome.runtime.sendMessage({ action: 'THAO_TAC_UPDATED', count: rowsToWrite.length }).catch(() => {});
+        return true;
+    } catch (err) {
+        console.error('Exception flushActionBuffer:', err);
+        actionRecordBuffer = [...rowsToWrite, ...actionRecordBuffer];
+        return false;
+    }
+}
+
 // --- Side Panel Behavior ---
 function syncPanelBehavior() {
     chrome.storage.local.get({ currentViewMode: 'sidepanel' }, (data) => {
@@ -519,22 +590,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             .then(translatedText => sendResponse({ success: true, translatedText }))
             .catch(err => sendResponse({ success: false, error: err.message }));
         return true;
-    } else if (message.action === 'TOGGLE_FLOATING_ICON') {
-        const nextState = message.enabled !== false;
-        chrome.storage.local.set({ infosys_floating_icon_enabled: nextState }, () => {
+    } else if (message.action === 'LOG_USER_ACTION') {
+        if (isActionRecorderActive) {
+            bufferUserAction(message.data);
+        }
+        sendResponse({ success: true });
+        return true;
+    } else if (message.action === 'TOGGLE_ACTION_RECORDER') {
+        const nextState = message.enabled !== undefined ? message.enabled : !isActionRecorderActive;
+        isActionRecorderActive = nextState;
+        chrome.storage.local.set({ infosys_action_recorder_enabled: nextState }, () => {
+            if (!nextState) {
+                flushActionBuffer();
+            }
             if (chrome.tabs && chrome.tabs.query) {
                 chrome.tabs.query({}, (tabs) => {
                     tabs.forEach(t => {
                         if (t && t.id) {
                             chrome.tabs.sendMessage(t.id, {
-                                action: 'TOGGLE_FLOATING_ICON',
+                                action: 'ACTION_RECORDER_STATE_CHANGED',
                                 enabled: nextState
                             }).catch(() => {});
                         }
                     });
                 });
             }
+            sendResponse({ success: true, enabled: nextState });
         });
+        return true;
+    } else if (message.action === 'FLUSH_ACTION_RECORDER') {
+        flushActionBuffer().then(success => {
+            sendResponse({ success });
+        });
+        return true;
     }
 
     // 2. ToolBox Handlers
