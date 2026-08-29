@@ -24,7 +24,7 @@
     "service_worker": "background.js"
   },
   "side_panel": {
-    "default_path": "toolbox.html"
+    "default_path": "index.html"
   },
   "permissions": [
     "activeTab",
@@ -39,6 +39,8 @@
     "clipboardWrite"
   ],
   "host_permissions": [
+    "https://sheets.googleapis.com/*",
+    "https://oauth2.googleapis.com/*",
     "<all_urls>"
   ],
   "content_scripts": [
@@ -72,16 +74,14 @@
         "4. tools-features/video-sound-controller.css"
       ],
       "run_at": "document_idle",
-      "all_frames": true,
-      "match_origin_as_fallback": true
+      "all_frames": true
     },
     {
       "matches": ["<all_urls>"],
       "js": ["4. tools-features/sound-controller-main.js"],
       "run_at": "document_start",
       "all_frames": true,
-      "world": "MAIN",
-      "match_origin_as_fallback": true
+      "world": "MAIN"
     }
   ],
   "web_accessible_resources": [
@@ -107,6 +107,6 @@
     }
   ],
   "content_security_policy": {
-    "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self';"
+    "extension_pages": "script-src 'self'; object-src 'self';"
   }
 }
