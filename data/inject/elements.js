@@ -78,7 +78,7 @@
               --bg: #f8fafc;
               --bg-result: #fffdf5;
               --accent: #6366f1;
-              --width: 440px;
+              --width: 480px;
               --height: 220px;
               --gap: 10px;
             }
@@ -108,17 +108,16 @@
               display: none;
             }
             button,
-            input[type=submit],
             input[type=button] {
-              padding: 6px 10px;
-              color: #1e293b;
-              font-weight: 600;
+              font-family: inherit;
+              padding: 5px 6px;
               background-image: linear-gradient(#ffffff, #f1f5f9);
-              box-shadow: rgba(0, 0, 0, 0.06) 0 1px 2px;
-              border: solid 1px #cbd5e1;
+              border: 1px solid #cbd5e1;
+              color: #334155;
               border-radius: 6px;
+              font-weight: 600;
               cursor: pointer;
-              font-size: 12px;
+              font-size: 11.5px;
             }
             input[type=button]:disabled {
               opacity: 0.5;
@@ -127,6 +126,16 @@
               background-image: linear-gradient(#6366f1, #4f46e5);
               color: #ffffff;
               border: 1px solid #4338ca;
+            }
+            #trans {
+              background-image: linear-gradient(#0284c7, #0369a1);
+              color: #ffffff;
+              border: 1px solid #075985;
+            }
+            #speak {
+              background-image: linear-gradient(#10b981, #059669);
+              color: #ffffff;
+              border: 1px solid #047857;
             }
             #result {
               min-height: 48px;
@@ -184,8 +193,8 @@
             }
             #tools {
               display: grid;
-              grid-template-columns: repeat(4, 1fr);
-              grid-gap: 8px;
+              grid-template-columns: repeat(6, 1fr);
+              grid-gap: 5px;
               justify-content: end;
             }
           </style>
@@ -311,7 +320,9 @@
             <div id="result" data-msg="Đang xử lý nhận diện chữ, vui lòng chờ..."></div>
             <div id="tools">
               <input type="button" value="Mở rộng" id="expand">
-              <input type="button" value="💾 Lưu Bảng tạm" id="post" disabled title="${this.locales.post}">
+              <input type="button" value="💾 Lưu" id="post" disabled title="${this.locales.post}">
+              <input type="button" value="🌐 Dịch" id="trans" disabled title="Dịch sang Tiếng Việt (Google Translate)">
+              <input type="button" value="🔊 Đọc" id="speak" disabled title="Đọc phát âm">
               <input type="button" value="Sao chép" id="copy" disabled>
               <input type="button" value="Đóng" id="close" title="${this.locales.close}">
             </div>
@@ -361,14 +372,32 @@
       clear() {
         this.shadowRoot.getElementById('result').removeAttribute('contenteditable');
         this.shadowRoot.getElementById('result').textContent = '';
+        const spk = this.shadowRoot.getElementById('speak');
+        if (spk) {
+          spk.disabled = true;
+          spk.value = '🔊 Đọc';
+        }
+        const trs = this.shadowRoot.getElementById('trans');
+        if (trs) {
+          trs.disabled = true;
+          trs.value = '🌐 Dịch';
+        }
+        if (typeof window.speechSynthesis !== 'undefined') {
+          window.speechSynthesis.cancel();
+        }
       }
       enable() {
         this.shadowRoot.getElementById('copy').disabled = false;
         this.shadowRoot.getElementById('post').disabled = false;
+        const spk = this.shadowRoot.getElementById('speak');
+        if (spk) spk.disabled = false;
+        const trs = this.shadowRoot.getElementById('trans');
+        if (trs) trs.disabled = false;
         this.shadowRoot.getElementById('result').setAttribute('contenteditable', true);
       }
       get result() {
-        return this.shadowRoot.getElementById('result').innerText;
+        const el = this.shadowRoot.getElementById('result');
+        return el ? (el.innerText || el.textContent || '') : '';
       }
       language(value) {
         this.dataset.language = value;
@@ -386,12 +415,240 @@
         }, timeout);
       }
       connectedCallback() {
+        // Prevent events from bubbling outside to page
+        this.shadowRoot.addEventListener('mousedown', e => e.stopPropagation());
+        this.shadowRoot.addEventListener('mouseup', e => e.stopPropagation());
+        this.shadowRoot.addEventListener('click', e => e.stopPropagation());
+        this.shadowRoot.addEventListener('pointerdown', e => e.stopPropagation());
+
+        let activeAudio = null;
+        let isSpeaking = false;
+
+        const stopSpeaking = () => {
+          isSpeaking = false;
+          try {
+            chrome.runtime.sendMessage({ action: 'STOP_SPEAKING' });
+          } catch(e) {}
+          if (activeAudio) {
+            try {
+              activeAudio.pause();
+              activeAudio.currentTime = 0;
+            } catch(e) {}
+            activeAudio = null;
+          }
+          if (typeof window.speechSynthesis !== 'undefined') {
+            try { window.speechSynthesis.cancel(); } catch(e) {}
+          }
+          const speakBtn = this.shadowRoot.getElementById('speak');
+          if (speakBtn) {
+            speakBtn.value = '🔊 Đọc';
+            speakBtn.style.backgroundImage = 'linear-gradient(#10b981, #059669)';
+          }
+        };
+
+        // 1. DỊCH (Translate to Vietnamese)
+        const transBtn = this.shadowRoot.getElementById('trans');
+        if (transBtn) {
+          transBtn.onclick = (e) => {
+            if (e) { e.preventDefault(); e.stopPropagation(); }
+            let text = (this.result || '').trim();
+            if (!text) {
+              const res = this.shadowRoot.getElementById('result');
+              if (res) text = (res.innerText || res.textContent || '').trim();
+            }
+            if (!text) return;
+
+            transBtn.value = '⏳ Đang dịch...';
+            transBtn.disabled = true;
+
+            try {
+              chrome.runtime.sendMessage({
+                action: 'TRANSLATE_TEXT',
+                text: text,
+                targetLang: 'vi'
+              }, (resp) => {
+                transBtn.disabled = false;
+                transBtn.value = '🌐 Dịch';
+
+                if (resp && resp.success && resp.translatedText) {
+                  const resultEl = this.shadowRoot.getElementById('result');
+                  if (resultEl) {
+                    resultEl.innerHTML = `<div style="color:#0369a1; font-weight:700; margin-bottom:6px; font-size:11px; display:flex; align-items:center; gap:4px;">🌐 Bản dịch Tiếng Việt:</div><div id="ocr_trans_val" style="line-height:1.6; font-size:13px; color:#0f172a; font-weight:500;">${resp.translatedText}</div><div style="margin-top:8px; padding-top:6px; border-top:1px dashed #cbd5e1; color:#64748b; font-size:11px;"><b>Gốc:</b> ${text}</div>`;
+                  }
+                  this.toast('trans', {
+                    new: '✓ Đã dịch!',
+                    old: '🌐 Dịch'
+                  });
+                } else {
+                  this.toast('trans', {
+                    new: '⚠️ Lỗi dịch',
+                    old: '🌐 Dịch'
+                  });
+                }
+              });
+            } catch(err) {
+              transBtn.disabled = false;
+              transBtn.value = '🌐 Dịch';
+            }
+          };
+        }
+
+        // 2. ĐỌC (Text-To-Speech)
+        const speakBtn = this.shadowRoot.getElementById('speak');
+        if (speakBtn) {
+          speakBtn.onclick = (e) => {
+            if (e) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+            if (isSpeaking) {
+              stopSpeaking();
+              return;
+            }
+
+            // Check if there is a translated text element or raw text
+            let text = '';
+            const transValEl = this.shadowRoot.getElementById('ocr_trans_val');
+            if (transValEl) {
+              text = transValEl.innerText.trim();
+            }
+            if (!text) {
+              text = (this.result || '').trim();
+            }
+            if (!text) {
+              const res = this.shadowRoot.getElementById('result');
+              if (res) text = (res.innerText || res.textContent || '').trim();
+            }
+            if (!text) {
+              text = 'Xin chào, không nhận diện được chữ';
+            }
+
+            isSpeaking = true;
+            speakBtn.value = '⏹️ Dừng';
+            speakBtn.style.backgroundImage = 'linear-gradient(#ef4444, #dc2626)';
+
+            // Determine language code
+            let langCode = 'vi';
+            const langSelect = this.shadowRoot.getElementById('language');
+            if (langSelect && langSelect.value && !transValEl) {
+              const val = langSelect.value;
+              if (val.startsWith('eng')) langCode = 'en';
+              else if (val.startsWith('chi')) langCode = 'zh-CN';
+              else if (val.startsWith('jpn')) langCode = 'ja';
+              else if (val.startsWith('kor')) langCode = 'ko';
+              else if (val.startsWith('fra')) langCode = 'fr';
+              else if (val.startsWith('deu')) langCode = 'de';
+              else if (val.startsWith('rus')) langCode = 'ru';
+              else if (val.startsWith('tha')) langCode = 'th';
+              else langCode = 'vi';
+            }
+
+            // Split into safe chunks
+            const rawParts = text.match(/[^.!?\n\r,;:]+[.!?\n\r,;:]*|[^.!?\n\r,;:]+$/g) || [text];
+            const chunks = [];
+            rawParts.forEach(p => {
+              const t = p.trim();
+              if (!t) return;
+              if (t.length > 130) {
+                const words = t.split(/\s+/);
+                let cur = '';
+                words.forEach(w => {
+                  if ((cur + ' ' + w).trim().length > 130) {
+                    if (cur.trim()) chunks.push(cur.trim());
+                    cur = w;
+                  } else {
+                    cur = (cur + ' ' + w).trim();
+                  }
+                });
+                if (cur.trim()) chunks.push(cur.trim());
+              } else {
+                chunks.push(t);
+              }
+            });
+
+            if (chunks.length === 0) {
+              chunks.push(text);
+            }
+
+            // SYNCHRONOUSLY initiate Audio or SpeechSynthesis to guarantee user gesture activation
+            let chunkIdx = 0;
+
+            const playChunk = () => {
+              if (!isSpeaking) return;
+              if (chunkIdx >= chunks.length) {
+                stopSpeaking();
+                return;
+              }
+
+              const chunk = chunks[chunkIdx++];
+
+              // Method A: Try SpeechSynthesis
+              if (typeof window.speechSynthesis !== 'undefined') {
+                try {
+                  window.speechSynthesis.cancel();
+                  const u = new SpeechSynthesisUtterance(chunk);
+                  u.lang = langCode === 'vi' ? 'vi-VN' : langCode;
+                  u.rate = 1.0;
+                  const voices = window.speechSynthesis.getVoices() || [];
+                  const vMatch = voices.find(v => v.lang && (v.lang.toLowerCase().includes(langCode)));
+                  if (vMatch) u.voice = vMatch;
+
+                  u.onend = () => {
+                    if (isSpeaking) playChunk();
+                  };
+                  u.onerror = () => {
+                    playAudioFallback(chunk);
+                  };
+
+                  window.speechSynthesis.speak(u);
+                  return;
+                } catch(e) {
+                  playAudioFallback(chunk);
+                }
+              } else {
+                playAudioFallback(chunk);
+              }
+            };
+
+            const playAudioFallback = (chunk) => {
+              try {
+                const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${langCode}&client=tw-ob&q=${encodeURIComponent(chunk)}`;
+                const audio = new Audio(url);
+                activeAudio = audio;
+                audio.onended = () => {
+                  if (isSpeaking) playChunk();
+                };
+                audio.onerror = () => {
+                  if (isSpeaking) playChunk();
+                };
+                audio.play().catch(() => {
+                  if (isSpeaking) playChunk();
+                });
+              } catch(e) {
+                if (isSpeaking) playChunk();
+              }
+            };
+
+            // Also send background chrome.tts in parallel as bonus
+            try {
+              chrome.runtime.sendMessage({
+                action: 'SPEAK_TEXT',
+                text: text,
+                lang: langCode === 'vi' ? 'vi-VN' : langCode
+              });
+            } catch(e) {}
+
+            playChunk();
+          };
+        }
+
         // copy
-        this.shadowRoot.getElementById('copy').onclick = async () => {
+        this.shadowRoot.getElementById('copy').onclick = async (e) => {
+          if (e) { e.preventDefault(); e.stopPropagation(); }
           try {
             await navigator.clipboard.writeText(this.result);
           }
-          catch (e) {
+          catch (err) {
             const input = document.createElement('textarea');
             input.value = this.result;
             input.style.position = 'absolute';
@@ -408,6 +665,7 @@
         };
         // post (Lưu vào Bảng tạm InfoSys)
         this.shadowRoot.getElementById('post').onclick = e => {
+          if (e) { e.preventDefault(); e.stopPropagation(); }
           const value = this.result.trim();
           if (e.shiftKey) {
             const message = this.locales.tutorial.replace('&page;', this.dataset.page);

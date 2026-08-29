@@ -315,7 +315,7 @@
     boostDisplay.className = 'max-speed-display';
     let currentBoost = rememberBoostLevel ? lastBoostLevel : (video._maxAudioBoostLevel !== undefined ? video._maxAudioBoostLevel : 0);
     boostDisplay.textContent = getBoostText(currentBoost);
-    boostDisplay.title = 'Audio Boost (Click to toggle 0 dB / boost)';
+    boostDisplay.title = 'Khuếch đại Âm lượng (Bấm để bật/tắt kích âm)';
 
     // Apply remembered boost on video startup
     if (rememberBoostLevel && lastBoostLevel > 0) {
@@ -332,7 +332,7 @@
     // 1. Boost Slider Header
     const boostSliderHeader = document.createElement('div');
     boostSliderHeader.className = 'max-speed-slider-row';
-    boostSliderHeader.innerHTML = `<span class="max-speed-slider-label">Audio Boost</span><span class="max-speed-slider-val">${getBoostText(currentBoost)}</span>`;
+    boostSliderHeader.innerHTML = `<span class="max-speed-slider-label">Khuếch đại Âm lượng</span><span class="max-speed-slider-val">${getBoostText(currentBoost)}</span>`;
 
     // 2. Boost Range Slider (0 dB to +50 dB)
     const boostSlider = document.createElement('input');
@@ -436,7 +436,7 @@
     const boostMinusBtn = document.createElement('button');
     boostMinusBtn.className = 'max-speed-btn max-boost-btn max-boost-minus';
     boostMinusBtn.innerHTML = '−';
-    boostMinusBtn.title = `Lower boost by step (Shortcut: ${boostShortcutSettings.decrease.key.toUpperCase()})`;
+    boostMinusBtn.title = `Giảm kích âm (Phím tắt: ${boostShortcutSettings.decrease.key.toUpperCase()})`;
     boostMinusBtn.addEventListener('click', () => {
       let cur = video._maxAudioBoostLevel !== undefined ? video._maxAudioBoostLevel : 0;
       let step = parseFloat(boostShortcutSettings.decrease.step || 2);
@@ -446,7 +446,7 @@
     const boostPlusBtn = document.createElement('button');
     boostPlusBtn.className = 'max-speed-btn max-boost-btn max-boost-plus';
     boostPlusBtn.innerHTML = '+';
-    boostPlusBtn.title = `Higher boost by step (Shortcut: ${boostShortcutSettings.increase.key.toUpperCase()})`;
+    boostPlusBtn.title = `Tăng kích âm (Phím tắt: ${boostShortcutSettings.increase.key.toUpperCase()})`;
     boostPlusBtn.addEventListener('click', () => {
       let cur = video._maxAudioBoostLevel !== undefined ? video._maxAudioBoostLevel : 0;
       let step = parseFloat(boostShortcutSettings.increase.step || 2);
@@ -458,7 +458,7 @@
     rememberBoostContainer.className = 'max-settings-checkbox-container';
     rememberBoostContainer.innerHTML = `
       <input type="checkbox" class="max-settings-checkbox" ${rememberBoostLevel ? 'checked' : ''}>
-      <span class="max-settings-checkbox-label">Remember boost level</span>
+      <span class="max-settings-checkbox-label">Ghi nhớ mức khuếch đại</span>
     `;
     const rememberBoostCheckbox = rememberBoostContainer.querySelector('.max-settings-checkbox');
     if (rememberBoostCheckbox) {
@@ -482,28 +482,28 @@
     function renderBoostSettingsHTML() {
       boostSettingsPanel.innerHTML = `
         <div class="max-settings-header">
-          <h4 class="max-settings-title">Shortcut Audio Boost</h4>
+          <h4 class="max-settings-title">Phím tắt Khuếch đại Âm lượng</h4>
         </div>
         <div class="max-settings-combined-row">
           <div class="max-settings-combined-labels">
             <div class="max-settings-row">
-              <span class="max-shortcut-label">Decrease boost</span>
+              <span class="max-shortcut-label">Giảm kích âm</span>
               <div class="max-shortcut-key-box" data-action="boost-decrease">${boostShortcutSettings.decrease.key.toUpperCase()}</div>
             </div>
             <div class="max-settings-row">
-              <span class="max-shortcut-label">Increase boost</span>
+              <span class="max-shortcut-label">Tăng kích âm</span>
               <div class="max-shortcut-key-box" data-action="boost-increase">${boostShortcutSettings.increase.key.toUpperCase()}</div>
             </div>
           </div>
           <input type="number" class="max-shortcut-val-input" data-action="boost-step" min="1" max="25" step="1" value="${boostShortcutSettings.increase.step}">
         </div>
         <div class="max-settings-row">
-          <span class="max-shortcut-label">Reset boost</span>
+          <span class="max-shortcut-label">Đặt lại âm lượng</span>
           <div class="max-shortcut-key-box" data-action="boost-reset">${boostShortcutSettings.reset.key.toUpperCase()}</div>
           <input type="number" class="max-shortcut-val-input" data-action="boost-reset-val" min="0" max="50" step="1" value="${boostShortcutSettings.reset.value}">
         </div>
         <div class="max-settings-row">
-          <span class="max-shortcut-label">Preferred boost</span>
+          <span class="max-shortcut-label">Mức âm ưa thích</span>
           <div class="max-shortcut-key-box" data-action="boost-preferred">${boostShortcutSettings.preferred.key.toUpperCase()}</div>
           <input type="number" class="max-shortcut-val-input" data-action="boost-preferred-val" min="0" max="50" step="1" value="${boostShortcutSettings.preferred.value}">
         </div>
@@ -534,10 +534,10 @@
             const action = box.dataset.action;
             if (action === 'boost-decrease') {
               boostShortcutSettings.decrease.key = newKey;
-              boostMinusBtn.title = `Lower boost by step (Shortcut: ${newKey.toUpperCase()})`;
+              boostMinusBtn.title = `Giảm kích âm (Phím tắt: ${newKey.toUpperCase()})`;
             } else if (action === 'boost-increase') {
               boostShortcutSettings.increase.key = newKey;
-              boostPlusBtn.title = `Higher boost by step (Shortcut: ${newKey.toUpperCase()})`;
+              boostPlusBtn.title = `Tăng kích âm (Phím tắt: ${newKey.toUpperCase()})`;
             } else if (action === 'boost-reset') {
               boostShortcutSettings.reset.key = newKey;
             } else if (action === 'boost-preferred') {

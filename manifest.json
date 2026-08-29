@@ -30,7 +30,8 @@
     "sidePanel",
     "desktopCapture",
     "contextMenus",
-    "clipboardWrite"
+    "clipboardWrite",
+    "tts"
   ],
   "host_permissions": [
     "https://sheets.googleapis.com/*",

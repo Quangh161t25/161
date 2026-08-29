@@ -328,7 +328,7 @@
     const minusBtn = document.createElement('button');
     minusBtn.className = 'max-speed-btn max-speed-minus';
     minusBtn.innerHTML = '−';
-    minusBtn.title = `Slower by step (Shortcut: ${shortcutSettings.decrease.key.toUpperCase()})`;
+    minusBtn.title = `Giảm tốc độ (Phím tắt: ${shortcutSettings.decrease.key.toUpperCase()})`;
     minusBtn.addEventListener('click', () => {
       adjustSpeed(video, -1);
     });
@@ -339,7 +339,7 @@
     const speedDisplay = document.createElement('span');
     speedDisplay.className = 'max-speed-display';
     speedDisplay.textContent = formatSpeed(video.playbackRate);
-    speedDisplay.title = `Reset (Shortcut: ${shortcutSettings.reset.key.toUpperCase()})`;
+    speedDisplay.title = `Đặt lại tốc độ (Phím tắt: ${shortcutSettings.reset.key.toUpperCase()})`;
     speedDisplay.addEventListener('click', () => {
       const resetVal = parseFloat(shortcutSettings.reset.value || 1.0);
       let targetRate = resetVal;
@@ -360,7 +360,7 @@
     // Speed slider header
     const speedSliderHeader = document.createElement('div');
     speedSliderHeader.className = 'max-speed-slider-row';
-    speedSliderHeader.innerHTML = `<span class="max-speed-slider-label">Video Speed</span><span class="max-speed-slider-val">${formatSpeed(video.playbackRate)}x</span>`;
+    speedSliderHeader.innerHTML = `<span class="max-speed-slider-label">Tốc độ Video</span><span class="max-speed-slider-val">${formatSpeed(video.playbackRate)}x</span>`;
 
     // Speed slider (snap 0.5, max 5x)
     const speedRangeSlider = document.createElement('input');
@@ -454,7 +454,7 @@
     const plusBtn = document.createElement('button');
     plusBtn.className = 'max-speed-btn max-speed-plus';
     plusBtn.innerHTML = '+';
-    plusBtn.title = `Faster by step (Shortcut: ${shortcutSettings.increase.key.toUpperCase()})`;
+    plusBtn.title = `Tăng tốc độ (Phím tắt: ${shortcutSettings.increase.key.toUpperCase()})`;
     plusBtn.addEventListener('click', () => {
       adjustSpeed(video, 1);
     });
@@ -466,33 +466,33 @@
     function renderSettingsHTML() {
       settingsPanel.innerHTML = `
         <div class="max-settings-header">
-          <h4 class="max-settings-title">Shortcut Video Speed</h4>
+          <h4 class="max-settings-title">Phím tắt Tốc độ Video</h4>
         </div>
         <div class="max-settings-combined-row">
           <div class="max-settings-combined-labels">
             <div class="max-settings-row">
-              <span class="max-shortcut-label">Decrease speed</span>
+              <span class="max-shortcut-label">Giảm tốc độ</span>
               <div class="max-shortcut-key-box" data-action="decrease">${shortcutSettings.decrease.key}</div>
             </div>
             <div class="max-settings-row">
-              <span class="max-shortcut-label">Increase speed</span>
+              <span class="max-shortcut-label">Tăng tốc độ</span>
               <div class="max-shortcut-key-box" data-action="increase">${shortcutSettings.increase.key}</div>
             </div>
           </div>
           <input type="number" class="max-shortcut-val-input" data-action="step-shared" min="0.05" max="2.00" step="0.05" value="${parseFloat(shortcutSettings.increase.step).toFixed(2)}">
         </div>
         <div class="max-settings-row">
-          <span class="max-shortcut-label">Reset speed</span>
+          <span class="max-shortcut-label">Đặt lại tốc độ</span>
           <div class="max-shortcut-key-box" data-action="reset">${shortcutSettings.reset.key}</div>
           <input type="number" class="max-shortcut-val-input" data-action="reset" min="0.05" max="16.00" step="0.05" value="${parseFloat(shortcutSettings.reset.value).toFixed(2)}">
         </div>
         <div class="max-settings-row">
-          <span class="max-shortcut-label">Preferred speed</span>
+          <span class="max-shortcut-label">Tốc độ ưa thích</span>
           <div class="max-shortcut-key-box" data-action="preferred">${shortcutSettings.preferred.key}</div>
           <input type="number" class="max-shortcut-val-input" data-action="preferred" min="0.05" max="16.00" step="0.05" value="${parseFloat(shortcutSettings.preferred.value).toFixed(2)}">
         </div>
         <div class="max-settings-slider-row">
-          <span class="max-settings-slider-label">HUD Opacity <span class="max-opacity-val">${shortcutSettings.hudOpacity !== undefined ? shortcutSettings.hudOpacity : 50}%</span></span>
+          <span class="max-settings-slider-label">Độ mờ bảng điều khiển <span class="max-opacity-val">${shortcutSettings.hudOpacity !== undefined ? shortcutSettings.hudOpacity : 50}%</span></span>
           <input type="range" class="max-opacity-slider" min="10" max="100" step="5" value="${shortcutSettings.hudOpacity !== undefined ? shortcutSettings.hudOpacity : 50}">
         </div>
       `;
@@ -647,9 +647,9 @@
             settingsPanel.classList.remove('max-open');
             saveShortcutsToStorage();
 
-            if (action === 'decrease') minusBtn.title = `Slower by step (Shortcut: ${newKey.toUpperCase()})`;
-            if (action === 'increase') plusBtn.title = `Faster by step (Shortcut: ${newKey.toUpperCase()})`;
-            if (action === 'reset') speedDisplay.title = `Reset (Shortcut: ${newKey.toUpperCase()})`;
+            if (action === 'decrease') minusBtn.title = `Giảm tốc độ (Phím tắt: ${newKey.toUpperCase()})`;
+            if (action === 'increase') plusBtn.title = `Tăng tốc độ (Phím tắt: ${newKey.toUpperCase()})`;
+            if (action === 'reset') speedDisplay.title = `Đặt lại tốc độ (Phím tắt: ${newKey.toUpperCase()})`;
 
             window.removeEventListener('keydown', keyCaptureHandler, true);
           };
@@ -693,7 +693,7 @@
     rememberSpeedContainer.className = 'max-settings-checkbox-container';
     rememberSpeedContainer.innerHTML = `
       <input type="checkbox" class="max-settings-checkbox" ${rememberPlaybackSpeed ? 'checked' : ''}>
-      <span class="max-settings-checkbox-label">Remember playback speed</span>
+      <span class="max-settings-checkbox-label">Ghi nhớ tốc độ phát</span>
     `;
     const rememberSpeedCheckbox = rememberSpeedContainer.querySelector('.max-settings-checkbox');
     if (rememberSpeedCheckbox) {

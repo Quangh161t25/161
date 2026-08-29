@@ -585,6 +585,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             sendResponse({ success });
         });
         return true;
+    } else if (message.action === 'SPEAK_TEXT') {
+        const text = (message.text || '').trim();
+        const lang = message.lang || 'vi-VN';
+        if (text && chrome.tts) {
+            try {
+                chrome.tts.stop();
+                chrome.tts.speak(text, {
+                    lang: lang,
+                    rate: message.rate || 1.0,
+                    pitch: 1.0,
+                    onEvent: (event) => {
+                        if (event.type === 'start') {
+                            if (sendResponse) try { sendResponse({ status: 'start' }); } catch(e){}
+                        } else if (event.type === 'end' || event.type === 'error' || event.type === 'interrupted' || event.type === 'cancelled') {
+                            if (sendResponse) try { sendResponse({ status: 'end' }); } catch(e){}
+                        }
+                    }
+                });
+            } catch(e) {
+                console.warn('chrome.tts error:', e);
+            }
+        }
+        return true;
+    } else if (message.action === 'STOP_SPEAKING') {
+        if (chrome.tts) {
+            try { chrome.tts.stop(); } catch(e){}
+        }
+        return true;
     } else if (message.action === 'TRANSLATE_TEXT') {
         handleTranslateApi(message.text, message.targetLang || 'vi')
             .then(translatedText => sendResponse({ success: true, translatedText }))
