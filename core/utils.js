@@ -178,13 +178,65 @@ function saveTtsConfig(rate, voiceURI, pitch = 1.0) {
 let currentSpeechAudio = null;
 let currentSpeechBtn = null;
 
+let currentSpeechSessionId = 0;
+let ttsHeartbeatTimer = null;
+
+function splitTextIntoChunks(text, maxLen = 160) {
+    if (!text || typeof text !== 'string') return [];
+    const clean = text.replace(/\s+/g, ' ').trim();
+    if (clean.length <= maxLen) return [clean];
+
+    const rawSentences = clean.split(/(?<=[.?!;\n])\s+/);
+    const chunks = [];
+    let current = '';
+
+    for (const sentence of rawSentences) {
+        if (!sentence.trim()) continue;
+        if ((current + ' ' + sentence).trim().length <= maxLen) {
+            current = (current ? current + ' ' : '') + sentence.trim();
+        } else {
+            if (current) chunks.push(current.trim());
+            if (sentence.length > maxLen) {
+                const parts = sentence.split(/(?<=[,:\-])\s+|\s+/);
+                let sub = '';
+                for (const p of parts) {
+                    if (!p.trim()) continue;
+                    if ((sub + ' ' + p).trim().length <= maxLen) {
+                        sub = (sub ? sub + ' ' : '') + p.trim();
+                    } else {
+                        if (sub) chunks.push(sub.trim());
+                        sub = p.trim();
+                    }
+                }
+                if (sub) current = sub;
+                else current = '';
+            } else {
+                current = sentence.trim();
+            }
+        }
+    }
+    if (current.trim()) chunks.push(current.trim());
+    return chunks.filter(c => c.length > 0);
+}
+
 function stopSpeaking() {
+    currentSpeechSessionId++;
+    if (ttsHeartbeatTimer) {
+        clearInterval(ttsHeartbeatTimer);
+        ttsHeartbeatTimer = null;
+    }
     if (typeof window !== 'undefined') {
         if (window.speechSynthesis) {
-            try { window.speechSynthesis.cancel(); } catch (e) {}
+            try {
+                window.speechSynthesis.pause();
+                window.speechSynthesis.cancel();
+            } catch (e) {}
         }
         if (currentSpeechAudio) {
-            try { currentSpeechAudio.pause(); } catch (e) {}
+            try {
+                currentSpeechAudio.pause();
+                currentSpeechAudio.src = '';
+            } catch (e) {}
             currentSpeechAudio = null;
         }
     }
@@ -197,43 +249,20 @@ function stopSpeaking() {
     }
 }
 
-function playGoogleTtsAudioFallback(text, onStart, onEnd, customRate = null) {
-    try {
-        const shortText = text.length > 180 ? text.substring(0, 180) : text;
-        const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=${encodeURIComponent(shortText)}`;
-        const audio = new Audio(audioUrl);
-        currentSpeechAudio = audio;
-        const rate = customRate !== null ? customRate : (window.ttsConfig ? window.ttsConfig.rate : 1.0);
-        audio.playbackRate = Math.max(0.5, Math.min(2.0, rate));
-        if (onStart) onStart();
-        audio.onended = () => {
-            currentSpeechAudio = null;
-            if (onEnd) onEnd();
-        };
-        audio.onerror = () => {
-            currentSpeechAudio = null;
-            if (onEnd) onEnd();
-        };
-        audio.play().catch(() => {
-            currentSpeechAudio = null;
-            if (onEnd) onEnd();
-        });
-    } catch (e) {
-        if (onEnd) onEnd();
-    }
-}
-
 function speakVietnamese(text, btnEl = null, customRate = null) {
     if (!text || typeof text !== 'string' || text.trim().length === 0) return;
     const cleanText = text.trim();
 
-    // If clicking the currently playing button -> Stop
     if (currentSpeechBtn === btnEl && btnEl) {
         stopSpeaking();
         return;
     }
 
     stopSpeaking();
+
+    const sessionId = ++currentSpeechSessionId;
+    const chunks = splitTextIntoChunks(cleanText, 160);
+    if (chunks.length === 0) return;
 
     const onStart = () => {
         if (btnEl) {
@@ -247,51 +276,116 @@ function speakVietnamese(text, btnEl = null, customRate = null) {
     };
 
     const onEnd = () => {
-        stopSpeaking();
+        if (sessionId === currentSpeechSessionId) {
+            stopSpeaking();
+        }
     };
 
-    // Use Web Speech API with Vietnamese voice and configured speed
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        try {
-            window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(cleanText);
-            utterance.lang = 'vi-VN';
+    onStart();
 
-            const rate = customRate !== null ? customRate : (window.ttsConfig ? window.ttsConfig.rate : 1.0);
-            const pitch = window.ttsConfig ? window.ttsConfig.pitch : 1.0;
-            const chosenVoiceURI = window.ttsConfig ? window.ttsConfig.voiceURI : '';
+    const rate = customRate !== null ? customRate : (window.ttsConfig ? window.ttsConfig.rate : 1.0);
+    const pitch = window.ttsConfig ? window.ttsConfig.pitch : 1.0;
+    const chosenVoiceURI = window.ttsConfig ? window.ttsConfig.voiceURI : '';
 
-            utterance.rate = Math.max(0.5, Math.min(2.0, rate));
-            utterance.pitch = Math.max(0.5, Math.min(1.5, pitch));
-
-            const voices = window.speechSynthesis.getVoices();
-            let selectedVoice = null;
-            if (chosenVoiceURI) {
-                selectedVoice = voices.find(v => v.voiceURI === chosenVoiceURI || v.name === chosenVoiceURI);
-            }
-            if (!selectedVoice) {
-                selectedVoice = voices.find(v => v.lang && (v.lang.toLowerCase().includes('vi') || v.lang.toLowerCase().includes('vn')));
-            }
-            if (selectedVoice) {
-                utterance.voice = selectedVoice;
-            }
-
-            utterance.onstart = onStart;
-            utterance.onend = onEnd;
-            utterance.onerror = (err) => {
-                console.warn('SpeechSynthesis error, using Google TTS audio fallback:', err);
-                playGoogleTtsAudioFallback(cleanText, onStart, onEnd, rate);
-            };
-
-            window.speechSynthesis.speak(utterance);
+    if (ttsHeartbeatTimer) clearInterval(ttsHeartbeatTimer);
+    ttsHeartbeatTimer = setInterval(() => {
+        if (sessionId !== currentSpeechSessionId) {
+            clearInterval(ttsHeartbeatTimer);
+            ttsHeartbeatTimer = null;
             return;
-        } catch (e) {
-            console.warn('SpeechSynthesis exception:', e);
         }
+        if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+            window.speechSynthesis.pause();
+            window.speechSynthesis.resume();
+        }
+    }, 8000);
+
+    let currentChunkIndex = 0;
+
+    function playNextChunk() {
+        if (sessionId !== currentSpeechSessionId) return;
+        if (currentChunkIndex >= chunks.length) {
+            onEnd();
+            return;
+        }
+
+        const chunkText = chunks[currentChunkIndex++];
+
+        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+            try {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(chunkText);
+                utterance.lang = 'vi-VN';
+                utterance.rate = Math.max(0.5, Math.min(2.0, rate));
+                utterance.pitch = Math.max(0.5, Math.min(1.5, pitch));
+
+                const voices = window.speechSynthesis.getVoices();
+                let selectedVoice = null;
+                if (chosenVoiceURI) {
+                    selectedVoice = voices.find(v => v.voiceURI === chosenVoiceURI || v.name === chosenVoiceURI);
+                }
+                if (!selectedVoice) {
+                    selectedVoice = voices.find(v => v.lang && (v.lang.toLowerCase().includes('vi') || v.lang.toLowerCase().includes('vn')));
+                }
+                if (selectedVoice) {
+                    utterance.voice = selectedVoice;
+                }
+
+                utterance.onend = () => {
+                    if (sessionId === currentSpeechSessionId) {
+                        playNextChunk();
+                    }
+                };
+                utterance.onerror = (err) => {
+                    console.warn('Utterance error, using audio fallback queue:', err);
+                    playGoogleTtsAudioQueue(chunks.slice(currentChunkIndex - 1), rate, sessionId, onEnd);
+                };
+
+                window.speechSynthesis.speak(utterance);
+                return;
+            } catch (e) {
+                console.warn('SpeechSynthesis exception:', e);
+            }
+        }
+
+        playGoogleTtsAudioQueue(chunks.slice(currentChunkIndex - 1), rate, sessionId, onEnd);
     }
 
-    // Audio fallback
-    playGoogleTtsAudioFallback(cleanText, onStart, onEnd, customRate);
+    playNextChunk();
+}
+
+function playGoogleTtsAudioQueue(audioChunks, rate, sessionId, onEnd) {
+    if (!audioChunks || audioChunks.length === 0 || sessionId !== currentSpeechSessionId) {
+        if (onEnd) onEnd();
+        return;
+    }
+
+    let index = 0;
+    function playNextAudio() {
+        if (sessionId !== currentSpeechSessionId) return;
+        if (index >= audioChunks.length) {
+            if (onEnd) onEnd();
+            return;
+        }
+
+        const chunk = audioChunks[index++];
+        const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=vi&client=tw-ob&q=${encodeURIComponent(chunk)}`;
+        const audio = new Audio(audioUrl);
+        currentSpeechAudio = audio;
+        audio.playbackRate = Math.max(0.5, Math.min(2.0, rate));
+
+        audio.onended = () => {
+            if (sessionId === currentSpeechSessionId) playNextAudio();
+        };
+        audio.onerror = () => {
+            if (sessionId === currentSpeechSessionId) playNextAudio();
+        };
+        audio.play().catch(() => {
+            if (sessionId === currentSpeechSessionId) playNextAudio();
+        });
+    }
+
+    playNextAudio();
 }
 
 function showInfoToast(msg, type = 'info') {

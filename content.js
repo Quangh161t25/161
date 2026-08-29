@@ -7,6 +7,9 @@
 // ============================================================
 
 (function() {
+    // Only execute on top window to prevent duplicate toolbars, events, and overlapping TTS voices in iframes
+    if (window.top !== window.self) return;
+
     let isFloatingEnabled = true;
     let isCardPinned = false;
     let currentTargetLang = 'vi';
@@ -213,14 +216,68 @@
         throw new Error('Không thể dịch tự động. Vui lòng kiểm tra lại kết nối mạng.');
     }
 
-    // TTS Speech Engine
+    // ============================================================
+    //  TTS Speech Engine (Hỗ trợ đọc văn bản dài không giới hạn & Chống trùng giọng)
+    // ============================================================
+    let currentSpeechSessionId = 0;
+    let ttsHeartbeatTimer = null;
+
+    function splitTextIntoChunks(text, maxLen = 160) {
+        if (!text || typeof text !== 'string') return [];
+        const clean = text.replace(/\s+/g, ' ').trim();
+        if (clean.length <= maxLen) return [clean];
+
+        const rawSentences = clean.split(/(?<=[.?!;\n])\s+/);
+        const chunks = [];
+        let current = '';
+
+        for (const sentence of rawSentences) {
+            if (!sentence.trim()) continue;
+            if ((current + ' ' + sentence).trim().length <= maxLen) {
+                current = (current ? current + ' ' : '') + sentence.trim();
+            } else {
+                if (current) chunks.push(current.trim());
+                if (sentence.length > maxLen) {
+                    const parts = sentence.split(/(?<=[,:\-])\s+|\s+/);
+                    let sub = '';
+                    for (const p of parts) {
+                        if (!p.trim()) continue;
+                        if ((sub + ' ' + p).trim().length <= maxLen) {
+                            sub = (sub ? sub + ' ' : '') + p.trim();
+                        } else {
+                            if (sub) chunks.push(sub.trim());
+                            sub = p.trim();
+                        }
+                    }
+                    if (sub) current = sub;
+                    else current = '';
+                } else {
+                    current = sentence.trim();
+                }
+            }
+        }
+        if (current.trim()) chunks.push(current.trim());
+        return chunks.filter(c => c.length > 0);
+    }
+
     function stopSpeaking() {
+        currentSpeechSessionId++;
+        if (ttsHeartbeatTimer) {
+            clearInterval(ttsHeartbeatTimer);
+            ttsHeartbeatTimer = null;
+        }
         if (typeof window !== 'undefined') {
             if (window.speechSynthesis) {
-                try { window.speechSynthesis.cancel(); } catch (e) {}
+                try {
+                    window.speechSynthesis.pause();
+                    window.speechSynthesis.cancel();
+                } catch (e) {}
             }
             if (currentSpeechAudio) {
-                try { currentSpeechAudio.pause(); } catch (e) {}
+                try {
+                    currentSpeechAudio.pause();
+                    currentSpeechAudio.src = '';
+                } catch (e) {}
                 currentSpeechAudio = null;
             }
         }
@@ -242,6 +299,10 @@
 
         stopSpeaking();
 
+        const sessionId = ++currentSpeechSessionId;
+        const chunks = splitTextIntoChunks(cleanText, 160);
+        if (chunks.length === 0) return;
+
         const onStart = () => {
             if (btnEl) {
                 currentSpeechBtn = btnEl;
@@ -252,58 +313,117 @@
         };
 
         const onEnd = () => {
-            stopSpeaking();
+            if (sessionId === currentSpeechSessionId) {
+                stopSpeaking();
+            }
         };
 
+        onStart();
+
         const rate = customRate !== null ? customRate : (ttsConfig.rate || 1.0);
+        const pitch = ttsConfig.pitch || 1.0;
 
-        if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-            try {
-                window.speechSynthesis.cancel();
-                const utterance = new SpeechSynthesisUtterance(cleanText);
-                utterance.lang = langCode;
-                utterance.rate = Math.max(0.5, Math.min(2.0, rate));
-                utterance.pitch = Math.max(0.5, Math.min(1.5, ttsConfig.pitch || 1.0));
-
-                const voices = window.speechSynthesis.getVoices();
-                let selectedVoice = null;
-                if (langCode === 'vi' && ttsConfig.voiceURI) {
-                    selectedVoice = voices.find(v => v.voiceURI === ttsConfig.voiceURI || v.name === ttsConfig.voiceURI);
-                }
-                if (!selectedVoice) {
-                    selectedVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith(langCode.substring(0, 2).toLowerCase()));
-                }
-                if (selectedVoice) utterance.voice = selectedVoice;
-
-                utterance.onstart = onStart;
-                utterance.onend = onEnd;
-                utterance.onerror = () => {
-                    playAudioFallback(cleanText, langCode, onStart, onEnd, rate);
-                };
-
-                window.speechSynthesis.speak(utterance);
+        if (ttsHeartbeatTimer) clearInterval(ttsHeartbeatTimer);
+        ttsHeartbeatTimer = setInterval(() => {
+            if (sessionId !== currentSpeechSessionId) {
+                clearInterval(ttsHeartbeatTimer);
+                ttsHeartbeatTimer = null;
                 return;
-            } catch (e) {}
+            }
+            if (typeof window !== 'undefined' && window.speechSynthesis && window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+                window.speechSynthesis.pause();
+                window.speechSynthesis.resume();
+            }
+        }, 8000);
+
+        let currentChunkIndex = 0;
+
+        function playNextChunk() {
+            if (sessionId !== currentSpeechSessionId) return;
+            if (currentChunkIndex >= chunks.length) {
+                onEnd();
+                return;
+            }
+
+            const chunkText = chunks[currentChunkIndex++];
+
+            if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+                try {
+                    window.speechSynthesis.cancel();
+                    const utterance = new SpeechSynthesisUtterance(chunkText);
+                    utterance.lang = langCode === 'vi' ? 'vi-VN' : langCode;
+                    utterance.rate = Math.max(0.5, Math.min(2.0, rate));
+                    utterance.pitch = Math.max(0.5, Math.min(1.5, pitch));
+
+                    const voices = window.speechSynthesis.getVoices();
+                    let selectedVoice = null;
+                    if (langCode === 'vi' && ttsConfig.voiceURI) {
+                        selectedVoice = voices.find(v => v.voiceURI === ttsConfig.voiceURI || v.name === ttsConfig.voiceURI);
+                    }
+                    if (!selectedVoice) {
+                        selectedVoice = voices.find(v => v.lang && (v.lang.toLowerCase().includes('vi') || v.lang.toLowerCase().includes('vn')));
+                    }
+                    if (!selectedVoice && langCode !== 'vi') {
+                        selectedVoice = voices.find(v => v.lang && v.lang.toLowerCase().startsWith(langCode.substring(0, 2).toLowerCase()));
+                    }
+                    if (selectedVoice) utterance.voice = selectedVoice;
+
+                    utterance.onend = () => {
+                        if (sessionId === currentSpeechSessionId) {
+                            playNextChunk();
+                        }
+                    };
+
+                    utterance.onerror = (err) => {
+                        console.warn('Utterance error, fallback to audio for remaining chunks:', err);
+                        playAudioQueueFallback(chunks.slice(currentChunkIndex - 1), langCode, rate, sessionId, onEnd);
+                    };
+
+                    window.speechSynthesis.speak(utterance);
+                    return;
+                } catch (e) {
+                    console.warn('SpeechSynthesis exception:', e);
+                }
+            }
+
+            playAudioQueueFallback(chunks.slice(currentChunkIndex - 1), langCode, rate, sessionId, onEnd);
         }
 
-        playAudioFallback(cleanText, langCode, onStart, onEnd, rate);
+        playNextChunk();
     }
 
-    function playAudioFallback(text, langCode, onStart, onEnd, customRate = null) {
-        try {
-            const shortText = text.length > 180 ? text.substring(0, 180) : text;
-            const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${langCode}&client=tw-ob&q=${encodeURIComponent(shortText)}`;
+    function playAudioQueueFallback(audioChunks, langCode, rate, sessionId, onEnd) {
+        if (!audioChunks || audioChunks.length === 0 || sessionId !== currentSpeechSessionId) {
+            if (onEnd) onEnd();
+            return;
+        }
+
+        let index = 0;
+        function playNextAudio() {
+            if (sessionId !== currentSpeechSessionId) return;
+            if (index >= audioChunks.length) {
+                if (onEnd) onEnd();
+                return;
+            }
+
+            const chunk = audioChunks[index++];
+            const audioUrl = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${langCode}&client=tw-ob&q=${encodeURIComponent(chunk)}`;
             const audio = new Audio(audioUrl);
             currentSpeechAudio = audio;
-            const rate = customRate !== null ? customRate : (ttsConfig.rate || 1.0);
             audio.playbackRate = Math.max(0.5, Math.min(2.0, rate));
-            if (onStart) onStart();
-            audio.onended = () => { currentSpeechAudio = null; if (onEnd) onEnd(); };
-            audio.onerror = () => { currentSpeechAudio = null; if (onEnd) onEnd(); };
-            audio.play().catch(() => { currentSpeechAudio = null; if (onEnd) onEnd(); });
-        } catch (e) {
-            if (onEnd) onEnd();
+
+            audio.onended = () => {
+                if (sessionId === currentSpeechSessionId) playNextAudio();
+            };
+            audio.onerror = () => {
+                if (sessionId === currentSpeechSessionId) playNextAudio();
+            };
+            audio.play().catch(() => {
+                if (sessionId === currentSpeechSessionId) playNextAudio();
+            });
         }
+
+        playNextAudio();
     }
 
     // Save text to BANG_TAM
