@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
     document.getElementById('loading').style.display = 'none';
     if (window.updateGlobalFloatingButtonUI) window.updateGlobalFloatingButtonUI();
+    if (typeof getAccessToken === 'function') getAccessToken().catch(() => {});
     switchTab('LICH');
     // Request Notification Permission
     if ("Notification" in window && Notification.permission !== "granted" && Notification.permission !== "denied") {

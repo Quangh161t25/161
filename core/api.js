@@ -173,11 +173,9 @@ async function saveRecordFromForm(e) {
     e.preventDefault();
     if (!currentTab) return;
 
-    document.getElementById('loading').style.display = 'flex';
-    document.getElementById('loading').querySelector('p').innerText = 'Đang lưu dữ liệu...';
     try {
         const tabConfig = CONFIG.tabs[currentTab];
-        const token = await getAccessToken();
+        const targetRow = editingSheetRow ? Number(editingSheetRow) : null;
 
         // Generate a simple ID
         const newId = 'ID-' + Date.now();
@@ -212,46 +210,81 @@ async function saveRecordFromForm(e) {
             rowData.push(val);
         });
 
-        let res;
-        if (editingSheetRow) {
-            // Update
-            const endCol = String.fromCharCode(65 + rowData.length - 1);
-            res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${currentTab}!A${editingSheetRow}:${endCol}${editingSheetRow}?valueInputOption=RAW`, {
-                method: 'PUT',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    values: [rowData]
-                })
-            });
+        // 1. CẬP NHẬT TỨC THÌ TRÊN GIAO DIỆN & BỘ NHỚ ĐỆM (0ms delay)
+        if (!window.cachedData[currentTab]) {
+            window.cachedData[currentTab] = [...allData];
+        }
+
+        if (targetRow) {
+            rowData._sheetRow = targetRow;
+            const idx = allData.findIndex(r => r._sheetRow === targetRow);
+            if (idx !== -1) allData[idx] = rowData;
+            const cacheIdx = window.cachedData[currentTab].findIndex(r => r._sheetRow === targetRow);
+            if (cacheIdx !== -1) window.cachedData[currentTab][cacheIdx] = rowData;
         } else {
-            // Append
-            res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${currentTab}!A2:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    values: [rowData]
-                })
-            });
+            const maxRow = allData.length > 0 ? Math.max(...allData.map(r => r._sheetRow || 0)) : 1;
+            rowData._sheetRow = maxRow + 1;
+            allData.unshift(rowData);
+            window.cachedData[currentTab] = allData;
         }
 
-        if (!res.ok) {
-            const errData = await res.json().catch(() => ({}));
-            throw new Error(errData.error?.message || "Lỗi khi lưu dữ liệu");
+        if (currentTab === 'CHI_TIEU') {
+            calculateExpenseBalances();
         }
 
+        // Đóng modal form ngay lập tức
         closeProductForm();
-        window.cachedData[currentTab] = null; // Invalidate cache before reloading
+
+        // Vẽ lại giao diện ngay tức thì
         if (currentView === 'LICH') {
-            if (typeof renderCalendar === 'function') await renderCalendar();
+            if (typeof renderCalendar === 'function') renderCalendar();
         } else {
-            await fetchData(true);
+            if (typeof filterTable === 'function') filterTable();
+            else dispatchViewRender();
         }
+
+        // 2. Gửi lưu ngầm lên Google Sheets
+        (async () => {
+            try {
+                const token = await getAccessToken();
+                let res;
+                if (targetRow) {
+                    const endCol = String.fromCharCode(65 + rowData.length - 1);
+                    res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${currentTab}!A${targetRow}:${endCol}${targetRow}?valueInputOption=RAW`, {
+                        method: 'PUT',
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ values: [rowData] })
+                    });
+                } else {
+                    res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${currentTab}!A2:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+                        method: 'POST',
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ values: [rowData] })
+                    });
+                }
+
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.error?.message || "Lỗi khi lưu dữ liệu");
+                }
+            } catch (err) {
+                console.error("Lỗi khi lưu ngầm:", err);
+                alert("Lưu lên máy chủ Google Sheets thất bại: " + err.message);
+                window.cachedData[currentTab] = null;
+                if (currentView === 'LICH') {
+                    if (typeof renderCalendar === 'function') renderCalendar();
+                } else {
+                    fetchData(true);
+                }
+            }
+        })();
+
     } catch (err) {
         console.error(err);
         alert("Lưu thất bại: " + err.message);
@@ -264,51 +297,65 @@ async function deleteCurrentRecord() {
     if (!editingSheetRow || !currentTab) return;
     if (!confirm('Bạn có chắc chắn muốn xóa bản ghi này?')) return;
 
-    document.getElementById('loading').style.display = 'flex';
-    document.getElementById('loading').querySelector('p').innerText = 'Đang xóa...';
+    const rowToDelete = Number(editingSheetRow);
+    closeProductForm();
 
-    try {
-        const sheetId = await getSheetId(currentTab);
-        if (sheetId === null) throw new Error('Không tìm thấy sheet ID.');
-        const token = await getAccessToken();
-
-        const res = await fetch(
-            `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}:batchUpdate`,
-            {
-                method: 'POST',
-                headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    requests: [{
-                        deleteDimension: {
-                            range: {
-                                sheetId: sheetId,
-                                dimension: 'ROWS',
-                                startIndex: editingSheetRow - 1,
-                                endIndex: editingSheetRow
-                            }
-                        }
-                    }]
-                })
-            }
-        );
-
-        if (!res.ok) {
-            const err = await res.json().catch(() => ({}));
-            throw new Error(err.error?.message || 'Lỗi khi xóa');
-        }
-
-        closeProductForm();
-        window.cachedData[currentTab] = null;
-        if (currentView === 'LICH') {
-            if (typeof renderCalendar === 'function') await renderCalendar();
-        } else {
-            await fetchData(true);
-        }
-    } catch (e) {
-        alert('Xóa thất bại: ' + e.message);
-    } finally {
-        document.getElementById('loading').style.display = 'none';
+    // Cập nhật giao diện tức thì
+    allData = allData.filter(r => r._sheetRow !== rowToDelete);
+    if (window.cachedData[currentTab]) {
+        window.cachedData[currentTab] = window.cachedData[currentTab].filter(r => r._sheetRow !== rowToDelete);
     }
+    if (currentTab === 'CHI_TIEU') calculateExpenseBalances();
+
+    if (currentView === 'LICH') {
+        if (typeof renderCalendar === 'function') renderCalendar();
+    } else {
+        if (typeof filterTable === 'function') filterTable();
+        else dispatchViewRender();
+    }
+
+    // Gửi xóa ngầm
+    (async () => {
+        try {
+            const sheetId = await getSheetId(currentTab);
+            if (sheetId === null) throw new Error('Không tìm thấy sheet ID.');
+            const token = await getAccessToken();
+
+            const res = await fetch(
+                `https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}:batchUpdate`,
+                {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        requests: [{
+                            deleteDimension: {
+                                range: {
+                                    sheetId: sheetId,
+                                    dimension: 'ROWS',
+                                    startIndex: rowToDelete - 1,
+                                    endIndex: rowToDelete
+                                }
+                            }
+                        }]
+                    })
+                }
+            );
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                throw new Error(err.error?.message || 'Lỗi khi xóa');
+            }
+        } catch (e) {
+            console.error('Lỗi khi xóa ngầm:', e);
+            alert('Xóa trên máy chủ thất bại: ' + e.message);
+            window.cachedData[currentTab] = null;
+            if (currentView === 'LICH') {
+                if (typeof renderCalendar === 'function') renderCalendar();
+            } else {
+                fetchData(true);
+            }
+        }
+    })();
 }
 
 

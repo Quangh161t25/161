@@ -192,45 +192,53 @@ async function renderCalendar() {
     const calDash = document.getElementById('calendarDashboard');
     if (!calDash) return;
     
-    const tabsToFetch = ['GHI_CHU', 'CHI_TIEU', 'HOC_HOI', 'CONG_VIEC', 'DSNV'];
-    const allCached = tabsToFetch.every(tabName => window.cachedData && window.cachedData[tabName]);
-    if (!allCached) {
-        const loadEl = document.getElementById('loading');
-        if (loadEl) loadEl.style.display = 'flex';
-    }
-    
     try {
-        const token = await getAccessToken();
-        
-        const promises = tabsToFetch.map(async (tabName) => {
-            const tabConfig = CONFIG.tabs[tabName];
-            if (!tabConfig) return { tabName, headers: [], data: [] };
-            let data;
-            if (window.cachedData[tabName]) {
-                data = window.cachedData[tabName];
-            } else {
-                const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/${tabConfig.range}`, { 
-                    headers: { Authorization: `Bearer ${token}` },
-                    cache: 'no-store'
-                });
-                const rawData = await res.json();
-                data = (rawData.values || []).map((row, i) => {
-                    const arr = [...row];
-                    arr._sheetRow = i + 2;
-                    return arr;
-                });
-                window.cachedData[tabName] = data;
-            }
-            return {
-                tabName,
-                headers: tabConfig.headers,
-                data: [...data]
-            };
-        });
+        if (!window.cachedData) window.cachedData = {};
+        const tabsToFetch = ['GHI_CHU', 'CHI_TIEU', 'HOC_HOI', 'CONG_VIEC', 'DSNV'];
+        const uncachedTabs = tabsToFetch.filter(tabName => !window.cachedData[tabName]);
 
-        const allResults = await Promise.all(promises);
-        const loadEl = document.getElementById('loading');
-        if (loadEl) loadEl.style.display = 'none';
+        if (uncachedTabs.length > 0) {
+            const loadEl = document.getElementById('loading');
+            if (loadEl) {
+                loadEl.style.display = 'flex';
+                const p = loadEl.querySelector('p');
+                if (p) p.innerText = 'Đang tải dữ liệu...';
+            }
+            
+            try {
+                const token = await getAccessToken();
+            const rangesParam = uncachedTabs.map(t => `ranges=${CONFIG.tabs[t] ? CONFIG.tabs[t].range : t + '!A2:H'}`).join('&');
+            const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values:batchGet?${rangesParam}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (data.valueRanges) {
+                data.valueRanges.forEach((vr, idx) => {
+                    const tabName = uncachedTabs[idx];
+                    const rows = (vr.values || []).map((row, i) => {
+                        const arr = [...row];
+                        arr._sheetRow = i + 2;
+                        return arr;
+                    });
+                    window.cachedData[tabName] = rows;
+                });
+            }
+        } catch (e) {
+            console.error("Lỗi khi tải dữ liệu lịch batchGet:", e);
+        } finally {
+            const loadEl = document.getElementById('loading');
+            if (loadEl) loadEl.style.display = 'none';
+        }
+    }
+
+    const allResults = tabsToFetch.map(tabName => {
+        const tabConfig = CONFIG.tabs[tabName];
+        return {
+            tabName,
+            headers: tabConfig ? tabConfig.headers : [],
+            data: window.cachedData[tabName] ? [...window.cachedData[tabName]] : []
+        };
+    });
         
         let events = [];
         allResults.forEach(result => {
