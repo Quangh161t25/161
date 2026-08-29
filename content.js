@@ -1050,7 +1050,7 @@
         }, 12000);
     }
 
-    // AI Summarizer Card Widget
+    // AI Summarizer Card Widget (Draggable, Pinnable & Dedicated Close button)
     function showAiSummarizerCard(rect, text) {
         hideFloatingWidgets();
 
@@ -1061,49 +1061,131 @@
             background: #ffffff !important;
             color: #0f172a !important;
             border-radius: 16px !important;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.1) !important;
-            border: 1px solid #e2e8f0 !important;
-            width: min(440px, calc(100vw - 32px)) !important;
-            max-height: 80vh !important;
-            overflow-y: auto !important;
+            box-shadow: 0 20px 45px -8px rgba(15,23,42,0.25), 0 8px 16px -4px rgba(15,23,42,0.1) !important;
+            border: 1px solid #cbd5e1 !important;
+            width: min(450px, calc(100vw - 24px)) !important;
+            max-height: 85vh !important;
             z-index: 2147483647 !important;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-            padding: 16px !important;
             box-sizing: border-box !important;
-            animation: infosys-fade-in 0.2s ease-out !important;
+            overflow: hidden !important;
+            animation: infosys-fade-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            line-height: 1.5 !important;
         `;
 
-        let posX = Math.max(16, Math.min(window.innerWidth - 456, rect.left));
-        let posY = Math.max(16, Math.min(window.innerHeight - 380, rect.bottom + 10));
+        let posX = Math.max(12, Math.min(window.innerWidth - 466, (rect.left || 20)));
+        let posY = (rect.bottom || 60) + 10;
+        if (posY + 380 > window.innerHeight) {
+            posY = Math.max(12, (rect.top || 100) - 360);
+        }
         card.style.left = `${posX}px`;
         card.style.top = `${posY}px`;
 
+        let isAiSummaryPinned = false;
+
         card.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #f1f5f9;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <div style="width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px;">✨</div>
-                    <span style="font-weight:800; font-size:14px; color:#0f172a;">Tóm tắt Nội dung AI</span>
+            <!-- Top Header Bar (Draggable) -->
+            <div id="infosys-ai-sum-header" style="background: #ffffff; border-bottom: 1px solid #f1f5f9; padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; cursor: grab; user-select: none;">
+                <!-- Left: Title & Logo -->
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <div style="width: 24px; height: 24px; border-radius: 7px; background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; flex-shrink: 0; box-shadow: 0 2px 5px rgba(124,58,237,0.35);">✨</div>
+                    <span style="font-weight: 800; font-size: 13.5px; color: #6d28d9; letter-spacing: -0.2px;">Tóm tắt Nội dung AI</span>
+                    <span style="font-size: 11px; color: #94a3b8; font-weight: 500;">(Kéo thả di chuyển)</span>
                 </div>
-                <button id="infosys-ai-sum-close" style="background:transparent; border:none; color:#94a3b8; font-size:16px; cursor:pointer; padding:2px 6px; border-radius:6px;">✕</button>
+
+                <!-- Right: Pin & Dedicated Close Button -->
+                <div style="display: flex; align-items: center; gap: 6px;">
+                    <button id="infosys-ai-sum-pin-btn" style="background: #f8fafc; border: 1px solid #e2e8f0; font-size: 13px; color: #64748b; cursor: pointer; padding: 3px 7px; border-radius: 6px; transition: all 0.15s;" title="Ghim popup (không tự tắt khi click ra ngoài)">
+                        📌
+                    </button>
+                    <button id="infosys-ai-sum-close-btn" style="background: #fee2e2; border: 1px solid #fca5a5; color: #ef4444; font-size: 12px; font-weight: 700; cursor: pointer; padding: 4px 9px; border-radius: 6px; display: flex; align-items: center; gap: 4px; transition: all 0.15s;" onmouseover="this.style.background='#fecaca'" onmouseout="this.style.background='#fee2e2'" title="Đóng cửa sổ tóm tắt">
+                        <span>✕</span> <span>Đóng</span>
+                    </button>
+                </div>
             </div>
-            <div id="infosys-ai-sum-body" style="font-size:13px; color:#334155; line-height:1.6;">
-                <div style="display:flex; align-items:center; gap:8px; padding:20px 0; justify-content:center; color:#64748b;">
-                    <div style="width:16px; height:16px; border:2px solid #8b5cf6; border-top-color:transparent; border-radius:50%; animation:infosys-spin 0.8s linear infinite;"></div>
-                    <span>AI đang phân tích và trích xuất điểm chính...</span>
+
+            <!-- Body Container (Scrollable) -->
+            <div style="padding: 14px 16px; max-height: calc(85vh - 55px); overflow-y: auto;">
+                <div id="infosys-ai-sum-body" style="font-size: 13px; color: #334155; line-height: 1.6;">
+                    <div style="display: flex; align-items: center; gap: 9px; padding: 24px 0; justify-content: center; color: #64748b;">
+                        <div style="width: 18px; height: 18px; border: 2.5px solid #8b5cf6; border-top-color: transparent; border-radius: 50%; animation: infosys-spin 0.8s linear infinite;"></div>
+                        <span style="font-weight: 600;">AI đang phân tích và trích xuất điểm chính...</span>
+                    </div>
                 </div>
             </div>
         `;
 
         (document.body || document.documentElement).appendChild(card);
 
-        // Prevent outside click handler from immediately closing when clicking inside card
+        // Prevent events inside card from bubbling or dismissing selection
         ['mousedown', 'mouseup', 'click', 'pointerdown'].forEach(ev => {
             card.addEventListener(ev, e => e.stopPropagation());
         });
 
-        card.querySelector('#infosys-ai-sum-close').onclick = () => card.remove();
+        // 1. Draggable Logic on Header
+        const header = card.querySelector('#infosys-ai-sum-header');
+        let isDragging = false;
+        let startMouseX = 0, startMouseY = 0;
+        let cardStartLeft = 0, cardStartTop = 0;
 
-        // Send to background AI
+        header.onpointerdown = (e) => {
+            if (e.target.closest('button')) return;
+            isDragging = true;
+            header.style.cursor = 'grabbing';
+            startMouseX = e.clientX;
+            startMouseY = e.clientY;
+            cardStartLeft = card.offsetLeft;
+            cardStartTop = card.offsetTop;
+            header.setPointerCapture(e.pointerId);
+        };
+
+        header.onpointermove = (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - startMouseX;
+            const dy = e.clientY - startMouseY;
+            let newLeft = Math.max(8, Math.min(window.innerWidth - card.offsetWidth - 8, cardStartLeft + dx));
+            let newTop = Math.max(8, Math.min(window.innerHeight - card.offsetHeight - 8, cardStartTop + dy));
+            card.style.left = `${newLeft}px`;
+            card.style.top = `${newTop}px`;
+        };
+
+        header.onpointerup = (e) => {
+            if (isDragging) {
+                isDragging = false;
+                header.style.cursor = 'grab';
+                try { header.releasePointerCapture(e.pointerId); } catch(err) {}
+            }
+        };
+
+        // 2. Pin Button Logic
+        const pinBtn = card.querySelector('#infosys-ai-sum-pin-btn');
+        pinBtn.onclick = (e) => {
+            e.stopPropagation();
+            isAiSummaryPinned = !isAiSummaryPinned;
+            card.dataset.pinned = isAiSummaryPinned ? 'true' : 'false';
+            if (isAiSummaryPinned) {
+                pinBtn.style.background = '#f3e8ff';
+                pinBtn.style.color = '#7c3aed';
+                pinBtn.style.border = '1px solid #c084fc';
+                pinBtn.title = 'Đã ghim popup (Bấm để bỏ ghim)';
+                showToast('📌 Đã ghim Popup Tóm tắt');
+            } else {
+                pinBtn.style.background = '#f8fafc';
+                pinBtn.style.color = '#64748b';
+                pinBtn.style.border = '1px solid #e2e8f0';
+                pinBtn.title = 'Ghim popup (không tự tắt khi click ra ngoài)';
+                showToast('Đã bỏ ghim Popup Tóm tắt');
+            }
+        };
+
+        // 3. Dedicated Close Button Logic
+        const closeBtn = card.querySelector('#infosys-ai-sum-close-btn');
+        closeBtn.onclick = (e) => {
+            e.stopPropagation();
+            card.remove();
+        };
+
+        // 4. Send to background AI
         chrome.runtime.sendMessage({
             action: 'AI_SUMMARIZE_TEXT',
             text: text,
@@ -1116,18 +1198,18 @@
             if (resp && resp.success && resp.summary) {
                 const s = resp.summary;
                 let html = `
-                    <div style="background:#f8fafc; border-radius:10px; padding:10px 12px; border:1px solid #e2e8f0; margin-bottom:10px;">
-                        <div style="font-weight:700; color:#0284c7; font-size:11px; margin-bottom:4px; text-transform:uppercase;">📌 Tổng quan cốt lõi:</div>
-                        <div style="color:#0f172a; font-size:13px; font-weight:500; line-height:1.5;">${s.overview || ''}</div>
+                    <div style="background: #f8fafc; border-radius: 10px; padding: 10px 12px; border: 1px solid #e2e8f0; margin-bottom: 12px;">
+                        <div style="font-weight: 700; color: #0284c7; font-size: 11px; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.3px;">📌 Tổng quan cốt lõi:</div>
+                        <div style="color: #0f172a; font-size: 13px; font-weight: 500; line-height: 1.5;">${s.overview || ''}</div>
                     </div>
                 `;
 
                 if (Array.isArray(s.keyPoints) && s.keyPoints.length > 0) {
                     html += `
-                        <div style="margin-bottom:10px;">
-                            <div style="font-weight:700; color:#7c3aed; font-size:11px; margin-bottom:6px; text-transform:uppercase;">🔑 Điểm chính:</div>
-                            <ul style="margin:0; padding-left:18px; color:#334155; font-size:12.5px;">
-                                ${s.keyPoints.map(p => `<li style="margin-bottom:4px;">${p}</li>`).join('')}
+                        <div style="margin-bottom: 12px;">
+                            <div style="font-weight: 700; color: #7c3aed; font-size: 11px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px;">🔑 Điểm chính (Key Points):</div>
+                            <ul style="margin: 0; padding-left: 18px; color: #334155; font-size: 12.5px;">
+                                ${s.keyPoints.map(p => `<li style="margin-bottom: 4px; line-height: 1.45;">${p}</li>`).join('')}
                             </ul>
                         </div>
                     `;
@@ -1135,20 +1217,26 @@
 
                 if (Array.isArray(s.actionItems) && s.actionItems.length > 0) {
                     html += `
-                        <div style="margin-bottom:12px;">
-                            <div style="font-weight:700; color:#059669; font-size:11px; margin-bottom:6px; text-transform:uppercase;">💡 Bài học & Hành động:</div>
-                            <ul style="margin:0; padding-left:18px; color:#334155; font-size:12.5px;">
-                                ${s.actionItems.map(a => `<li style="margin-bottom:4px;">${a}</li>`).join('')}
+                        <div style="margin-bottom: 14px;">
+                            <div style="font-weight: 700; color: #059669; font-size: 11px; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px;">💡 Bài học & Hành động (Action Items):</div>
+                            <ul style="margin: 0; padding-left: 18px; color: #334155; font-size: 12.5px;">
+                                ${s.actionItems.map(a => `<li style="margin-bottom: 4px; line-height: 1.45;">${a}</li>`).join('')}
                             </ul>
                         </div>
                     `;
                 }
 
                 html += `
-                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px; margin-top:14px; padding-top:10px; border-top:1px solid #f1f5f9;">
-                        <button id="infosys-ai-save-hoc-hoi" style="background:#f0fdf4; border:1px solid #bbf7d0; color:#15803d; padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">💾 Lưu Học hỏi</button>
-                        <button id="infosys-ai-save-ghi-chu" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">📝 Lưu Ghi chú</button>
-                        <button id="infosys-ai-copy-sum" style="background:#f8fafc; border:1px solid #cbd5e1; color:#334155; padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">📋 Sao chép</button>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-top: 14px; padding-top: 12px; border-top: 1px solid #f1f5f9;">
+                        <button id="infosys-ai-save-hoc-hoi" style="background: #f0fdf4; border: 1px solid #bbf7d0; color: #15803d; padding: 7px 6px; border-radius: 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.15s;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
+                            <span>💾</span> <span>Lưu Học hỏi</span>
+                        </button>
+                        <button id="infosys-ai-save-ghi-chu" style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; padding: 7px 6px; border-radius: 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.15s;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
+                            <span>📝</span> <span>Lưu Ghi chú</span>
+                        </button>
+                        <button id="infosys-ai-copy-sum" style="background: #f8fafc; border: 1px solid #cbd5e1; color: #334155; padding: 7px 6px; border-radius: 8px; font-size: 11.5px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 4px; transition: all 0.15s;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='#f8fafc'">
+                            <span>📋</span> <span>Sao chép</span>
+                        </button>
                     </div>
                 `;
 
@@ -1163,9 +1251,9 @@
                         content: fullSummaryText,
                         url: window.location.href,
                         tag: (s.tags && s.tags[0]) || 'Tóm tắt AI'
-                    }, (r) => {
+                    }, () => {
                         showToast('✓ Đã lưu tóm tắt vào HỌC HỎI!');
-                        card.remove();
+                        if (!isAiSummaryPinned) card.remove();
                     });
                 });
 
@@ -1175,9 +1263,9 @@
                         title: document.title,
                         content: fullSummaryText,
                         tag: (s.tags && s.tags[0]) || 'Tóm tắt AI'
-                    }, (r) => {
+                    }, () => {
                         showToast('✓ Đã lưu tóm tắt vào GHI CHÚ!');
-                        card.remove();
+                        if (!isAiSummaryPinned) card.remove();
                     });
                 });
 
@@ -1188,7 +1276,7 @@
                 });
 
             } else {
-                body.innerHTML = `<div style="color:#ef4444; font-weight:600; padding:10px 0; text-align:center;">⚠️ Không thể tóm tắt được nội dung này.</div>`;
+                body.innerHTML = `<div style="color: #ef4444; font-weight: 600; padding: 14px 0; text-align: center;">⚠️ Không thể tóm tắt được nội dung này.</div>`;
             }
         });
     }
@@ -1245,11 +1333,11 @@
     }
 
     function scheduleSelectionCheck(e) {
-        if (e && e.target && e.target.closest && (e.target.closest('#infosys-floating-toolbar') || e.target.closest('#infosys-translate-card') || e.target.closest('#infosys-copy-toast'))) {
+        if (e && e.target && e.target.closest && (e.target.closest('#infosys-floating-toolbar') || e.target.closest('#infosys-translate-card') || e.target.closest('#infosys-ai-summary-card') || e.target.closest('#infosys-copy-toast'))) {
             return;
         }
-        if (document.getElementById('infosys-translate-card')) {
-            return; // Keep translate card open!
+        if (document.getElementById('infosys-translate-card') || document.getElementById('infosys-ai-summary-card')) {
+            return; // Keep cards open!
         }
         clearTimeout(selectionTimeout);
         selectionTimeout = setTimeout(updateSelection, 60);
@@ -1266,11 +1354,15 @@
 
     document.addEventListener('mousedown', (e) => {
         if (isCardPinned) return;
-        if (e.target && e.target.closest && (e.target.closest('#infosys-floating-toolbar') || e.target.closest('#infosys-translate-card') || e.target.closest('#infosys-copy-toast'))) {
+        const aiCard = document.getElementById('infosys-ai-summary-card');
+        if (aiCard && aiCard.dataset.pinned === 'true') return;
+        if (e.target && e.target.closest && (e.target.closest('#infosys-floating-toolbar') || e.target.closest('#infosys-translate-card') || e.target.closest('#infosys-ai-summary-card') || e.target.closest('#infosys-copy-toast'))) {
             return;
         }
         setTimeout(() => {
             if (isCardPinned) return;
+            const currentAiCard = document.getElementById('infosys-ai-summary-card');
+            if (currentAiCard && currentAiCard.dataset.pinned === 'true') return;
             const sel = window.getSelection();
             if (!sel || sel.isCollapsed || sel.rangeCount === 0) {
                 hideFloatingWidgets();
