@@ -470,6 +470,144 @@ async function handleTranslateApi(text, targetLang = 'vi') {
     throw new Error('Không thể dịch tự động. Vui lòng kiểm tra lại mạng.');
 }
 
+// --- AI Summarization Engine in Service Worker ---
+async function handleAiSummarizeApi({ text, title, url }) {
+    if (!text || typeof text !== 'string') throw new Error('Văn bản rỗng');
+    const cleanText = text.trim();
+
+    let geminiApiKey = '';
+    try {
+        const stored = await chrome.storage.local.get(['infosys_gemini_api_key']);
+        geminiApiKey = (stored && stored.infosys_gemini_api_key) || '';
+    } catch (e) {}
+
+    if (geminiApiKey) {
+        try {
+            const prompt = `Bạn là trợ lý tóm tắt nội dung thông minh. Hãy đọc nội dung bài viết dưới đây và tóm tắt theo cấu trúc JSON bằng Tiếng Việt:
+Tiêu đề: ${title || 'Bài viết'}
+Nguồn: ${url || ''}
+Nội dung:
+${cleanText.substring(0, 8000)}
+
+Hãy trả về đúng định dạng JSON sau (không kèm văn bản ngoài khối JSON):
+{
+  "overview": "Tóm tắt tổng quan trong 1-2 câu cốt lõi nhất",
+  "keyPoints": [
+    "Điểm chính 1",
+    "Điểm chính 2",
+    "Điểm chính 3",
+    "Điểm chính 4"
+  ],
+  "actionItems": [
+    "Bài học / Hành động cần lưu ý 1",
+    "Bài học / Hành động cần lưu ý 2"
+  ],
+  "tags": ["TừKhoá1", "TừKhoá2"]
+}`;
+
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    generationConfig: { temperature: 0.2, maxOutputTokens: 1000 }
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const rawResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    return JSON.parse(jsonMatch[0]);
+                }
+            }
+        } catch (err) {
+            console.warn('Gemini API summarizer failed, using local summarizer:', err);
+        }
+    }
+
+    // Local Extractive Summarizer (No API key needed)
+    return generateLocalExtractiveSummary(cleanText, title, url);
+}
+
+function generateLocalExtractiveSummary(text, title = '', url = '') {
+    const rawParagraphs = text.split(/\n+/).map(p => p.trim()).filter(p => p.length > 25);
+    const sentences = text.match(/[^.!?\n\r]+[.!?]+/g) || [text];
+    const cleanSentences = sentences.map(s => s.trim()).filter(s => s.length > 20 && s.length < 250);
+
+    const overview = cleanSentences.slice(0, 2).join(' ') || (title ? `Nội dung tổng quan về ${title}` : text.substring(0, 150) + '...');
+    
+    const keyPoints = [];
+    for (let i = 0; i < cleanSentences.length && keyPoints.length < 5; i++) {
+        const s = cleanSentences[i];
+        if (i > 1 && !keyPoints.includes(s)) {
+            keyPoints.push(s.replace(/^[•\-\*\d\.\s]+/, ''));
+        }
+    }
+    if (keyPoints.length === 0 && rawParagraphs.length > 0) {
+        keyPoints.push(...rawParagraphs.slice(0, 3));
+    }
+
+    const actionItems = [
+        "Lưu lại nội dung để tra cứu khi cần.",
+        "Áp dụng các điểm cốt lõi vào công việc & học tập thực tế."
+    ];
+
+    const tag = detectSmartTag(url, text);
+
+    return {
+        overview,
+        keyPoints: keyPoints.slice(0, 5),
+        actionItems,
+        tags: [tag, 'Tóm tắt AI']
+    };
+}
+
+async function saveToHocHoi(title, content, url = '', tag = 'Tóm tắt AI') {
+    try {
+        const token = await getAccessToken();
+        const { ngay } = getFormattedDateTime();
+        const id = 'HH-' + Date.now();
+        const row = [id, ngay, title || 'Bài học tóm tắt', content || '', url || '', '', '', tag || 'Tóm tắt AI', ''];
+
+        const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/HOC_HOI!A2:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ values: [row] })
+        });
+        return res.ok;
+    } catch(e) {
+        console.error('Error saving to HOC_HOI:', e);
+        return false;
+    }
+}
+
+async function saveToGhiChu(title, content, tag = 'Tóm tắt AI') {
+    try {
+        const token = await getAccessToken();
+        const { ngay } = getFormattedDateTime();
+        const id = 'GC-' + Date.now();
+        const row = [id, ngay, '', '', title || 'Ghi chú tóm tắt', content || '', tag || 'Tóm tắt AI', '', 'Đang thực hiện', '', '', '', ''];
+
+        const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${CONFIG.spreadsheetId}/values/GHI_CHU!A2:append?valueInputOption=RAW&insertDataOption=INSERT_ROWS`, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ values: [row] })
+        });
+        return res.ok;
+    } catch(e) {
+        console.error('Error saving to GHI_CHU:', e);
+        return false;
+    }
+}
+
 // --- Integrated OCR WebAssembly Engine ---
 async function triggerOcrEngine(tabId) {
     if (!tabId) return;
@@ -616,6 +754,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     } else if (message.action === 'TRANSLATE_TEXT') {
         handleTranslateApi(message.text, message.targetLang || 'vi')
             .then(translatedText => sendResponse({ success: true, translatedText }))
+            .catch(err => sendResponse({ success: false, error: err.message }));
+        return true;
+    } else if (message.action === 'AI_SUMMARIZE_TEXT') {
+        handleAiSummarizeApi({ text: message.text, title: message.title, url: message.url })
+            .then(summary => sendResponse({ success: true, summary }))
+            .catch(err => sendResponse({ success: false, error: err.message }));
+        return true;
+    } else if (message.action === 'SAVE_TO_HOC_HOI') {
+        saveToHocHoi(message.title, message.content, message.url, message.tag)
+            .then(success => sendResponse({ success }))
+            .catch(err => sendResponse({ success: false, error: err.message }));
+        return true;
+    } else if (message.action === 'SAVE_TO_GHI_CHU') {
+        saveToGhiChu(message.title, message.content, message.tag)
+            .then(success => sendResponse({ success }))
             .catch(err => sendResponse({ success: false, error: err.message }));
         return true;
     } else if (message.action === 'LOG_USER_ACTION') {

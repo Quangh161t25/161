@@ -139,7 +139,7 @@
     // ============================================================
     function isEventInsideExtensionUI(target) {
         if (!target || !target.closest) return false;
-        return !!target.closest('#infosys-floating-toolbar, #infosys-translate-card, #infosys-ocr-result-modal, #infosys-ocr-overlay, #infosys-copy-toast, ocr-container, #infosys-ocr-loading-hud');
+        return !!target.closest('#infosys-floating-toolbar, #infosys-translate-card, #infosys-ai-summary-card, #infosys-ocr-result-modal, #infosys-ocr-overlay, #infosys-copy-toast, ocr-container, #infosys-ocr-loading-hud');
     }
 
     function sendActionToBackground(loai_thao_tac, doi_tuong, noi_dung, thong_tin_them = '') {
@@ -603,9 +603,15 @@
         if (tc) tc.remove();
     }
 
+    function hideAiSummaryCard() {
+        const sc = document.getElementById('infosys-ai-summary-card');
+        if (sc) sc.remove();
+    }
+
     function hideFloatingWidgets() {
         hideFloatingToolbar();
         hideTranslateCard();
+        hideAiSummaryCard();
     }
 
     // Google Translate Popup Card (Clean, Spacious & Intuitive UI)
@@ -982,6 +988,10 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"></path><path d="m4 14 6-6 2-3"></path><path d="M2 5h12"></path><path d="M7 2h1"></path><path d="m22 22-5-10-5 10"></path><path d="M14 18h6"></path></svg>
                 <span>Dịch Google</span>
             </button>
+            <button id="infosys-tb-summarize" style="background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); border: none; color: #ffffff; padding: 4px 9px; border-radius: 14px; font-size: 12px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(124,58,237,0.4);" title="Tóm tắt nội dung bằng AI">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"></path></svg>
+                <span>✨ Tóm tắt AI</span>
+            </button>
             <button id="infosys-tb-save" style="background: transparent; border: none; color: #38bdf8; padding: 4px 7px; border-radius: 14px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s;" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='transparent'" title="Lưu vào Bảng tạm InfoSys">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
                 <span>Lưu</span>
@@ -1009,6 +1019,11 @@
             showGoogleTranslateCard(rect, text);
         };
 
+        bar.querySelector('#infosys-tb-summarize').onclick = (e) => {
+            e.stopPropagation();
+            showAiSummarizerCard(rect, text);
+        };
+
         bar.querySelector('#infosys-tb-save').onclick = (e) => {
             e.stopPropagation();
             doSaveToBangTam(text);
@@ -1033,6 +1048,149 @@
         autoDismissTimer = setTimeout(() => {
             hideFloatingToolbar();
         }, 12000);
+    }
+
+    // AI Summarizer Card Widget
+    function showAiSummarizerCard(rect, text) {
+        hideFloatingWidgets();
+
+        const card = document.createElement('div');
+        card.id = 'infosys-ai-summary-card';
+        card.style.cssText = `
+            position: fixed !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border-radius: 16px !important;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.1) !important;
+            border: 1px solid #e2e8f0 !important;
+            width: min(440px, calc(100vw - 32px)) !important;
+            max-height: 80vh !important;
+            overflow-y: auto !important;
+            z-index: 2147483647 !important;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+            padding: 16px !important;
+            box-sizing: border-box !important;
+            animation: infosys-fade-in 0.2s ease-out !important;
+        `;
+
+        let posX = Math.max(16, Math.min(window.innerWidth - 456, rect.left));
+        let posY = Math.max(16, Math.min(window.innerHeight - 380, rect.bottom + 10));
+        card.style.left = `${posX}px`;
+        card.style.top = `${posY}px`;
+
+        card.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid #f1f5f9;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg, #a855f7 0%, #7c3aed 100%); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px;">✨</div>
+                    <span style="font-weight:800; font-size:14px; color:#0f172a;">Tóm tắt Nội dung AI</span>
+                </div>
+                <button id="infosys-ai-sum-close" style="background:transparent; border:none; color:#94a3b8; font-size:16px; cursor:pointer; padding:2px 6px; border-radius:6px;">✕</button>
+            </div>
+            <div id="infosys-ai-sum-body" style="font-size:13px; color:#334155; line-height:1.6;">
+                <div style="display:flex; align-items:center; gap:8px; padding:20px 0; justify-content:center; color:#64748b;">
+                    <div style="width:16px; height:16px; border:2px solid #8b5cf6; border-top-color:transparent; border-radius:50%; animation:infosys-spin 0.8s linear infinite;"></div>
+                    <span>AI đang phân tích và trích xuất điểm chính...</span>
+                </div>
+            </div>
+        `;
+
+        (document.body || document.documentElement).appendChild(card);
+
+        // Prevent outside click handler from immediately closing when clicking inside card
+        ['mousedown', 'mouseup', 'click', 'pointerdown'].forEach(ev => {
+            card.addEventListener(ev, e => e.stopPropagation());
+        });
+
+        card.querySelector('#infosys-ai-sum-close').onclick = () => card.remove();
+
+        // Send to background AI
+        chrome.runtime.sendMessage({
+            action: 'AI_SUMMARIZE_TEXT',
+            text: text,
+            title: document.title,
+            url: window.location.href
+        }, (resp) => {
+            const body = card.querySelector('#infosys-ai-sum-body');
+            if (!body) return;
+
+            if (resp && resp.success && resp.summary) {
+                const s = resp.summary;
+                let html = `
+                    <div style="background:#f8fafc; border-radius:10px; padding:10px 12px; border:1px solid #e2e8f0; margin-bottom:10px;">
+                        <div style="font-weight:700; color:#0284c7; font-size:11px; margin-bottom:4px; text-transform:uppercase;">📌 Tổng quan cốt lõi:</div>
+                        <div style="color:#0f172a; font-size:13px; font-weight:500; line-height:1.5;">${s.overview || ''}</div>
+                    </div>
+                `;
+
+                if (Array.isArray(s.keyPoints) && s.keyPoints.length > 0) {
+                    html += `
+                        <div style="margin-bottom:10px;">
+                            <div style="font-weight:700; color:#7c3aed; font-size:11px; margin-bottom:6px; text-transform:uppercase;">🔑 Điểm chính:</div>
+                            <ul style="margin:0; padding-left:18px; color:#334155; font-size:12.5px;">
+                                ${s.keyPoints.map(p => `<li style="margin-bottom:4px;">${p}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+
+                if (Array.isArray(s.actionItems) && s.actionItems.length > 0) {
+                    html += `
+                        <div style="margin-bottom:12px;">
+                            <div style="font-weight:700; color:#059669; font-size:11px; margin-bottom:6px; text-transform:uppercase;">💡 Bài học & Hành động:</div>
+                            <ul style="margin:0; padding-left:18px; color:#334155; font-size:12.5px;">
+                                ${s.actionItems.map(a => `<li style="margin-bottom:4px;">${a}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+
+                html += `
+                    <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:6px; margin-top:14px; padding-top:10px; border-top:1px solid #f1f5f9;">
+                        <button id="infosys-ai-save-hoc-hoi" style="background:#f0fdf4; border:1px solid #bbf7d0; color:#15803d; padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">💾 Lưu Học hỏi</button>
+                        <button id="infosys-ai-save-ghi-chu" style="background:#eff6ff; border:1px solid #bfdbfe; color:#1d4ed8; padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">📝 Lưu Ghi chú</button>
+                        <button id="infosys-ai-copy-sum" style="background:#f8fafc; border:1px solid #cbd5e1; color:#334155; padding:6px 8px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">📋 Sao chép</button>
+                    </div>
+                `;
+
+                body.innerHTML = html;
+
+                const fullSummaryText = `📌 [TỔNG QUAN]\n${s.overview || ''}\n\n🔑 [ĐIỂM CHÍNH]\n${(s.keyPoints || []).map(p => '• ' + p).join('\n')}\n\n💡 [HÀNH ĐỘNG]\n${(s.actionItems || []).map(a => '• ' + a).join('\n')}`;
+
+                card.querySelector('#infosys-ai-save-hoc-hoi')?.addEventListener('click', () => {
+                    chrome.runtime.sendMessage({
+                        action: 'SAVE_TO_HOC_HOI',
+                        title: document.title,
+                        content: fullSummaryText,
+                        url: window.location.href,
+                        tag: (s.tags && s.tags[0]) || 'Tóm tắt AI'
+                    }, (r) => {
+                        showToast('✓ Đã lưu tóm tắt vào HỌC HỎI!');
+                        card.remove();
+                    });
+                });
+
+                card.querySelector('#infosys-ai-save-ghi-chu')?.addEventListener('click', () => {
+                    chrome.runtime.sendMessage({
+                        action: 'SAVE_TO_GHI_CHU',
+                        title: document.title,
+                        content: fullSummaryText,
+                        tag: (s.tags && s.tags[0]) || 'Tóm tắt AI'
+                    }, (r) => {
+                        showToast('✓ Đã lưu tóm tắt vào GHI CHÚ!');
+                        card.remove();
+                    });
+                });
+
+                card.querySelector('#infosys-ai-copy-sum')?.addEventListener('click', () => {
+                    navigator.clipboard.writeText(fullSummaryText).then(() => {
+                        showToast('✓ Đã sao chép bản tóm tắt!');
+                    });
+                });
+
+            } else {
+                body.innerHTML = `<div style="color:#ef4444; font-weight:600; padding:10px 0; text-align:center;">⚠️ Không thể tóm tắt được nội dung này.</div>`;
+            }
+        });
     }
 
     // Handle selection on web page

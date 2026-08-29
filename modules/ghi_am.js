@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  InfoSys — Module GHI ÂM MP3 (Studio Thu Âm & Xuất File MP3)
 // ============================================================
 
@@ -20,6 +20,11 @@
     let recordedAudioUrl = null;
     let sampleRate = 44100;
     let recordedDurationSeconds = 0;
+
+    // Speech-to-Text (STT) Variables
+    let speechRecognizer = null;
+    let transcribedFinalText = '';
+    let transcribedInterimText = '';
 
     function openVoiceRecorderModal() {
         let modal = document.getElementById('voiceRecorderModal');
@@ -51,6 +56,9 @@
         const pauseBtn = document.getElementById('voicePauseBtn');
         const stopBtn = document.getElementById('voiceStopBtn');
         const postRecordSection = document.getElementById('voicePostRecordSection');
+        const liveTranscriptSection = document.getElementById('voiceLiveTranscriptSection');
+        const liveTranscriptText = document.getElementById('voiceLiveTranscriptText');
+        const transcriptInput = document.getElementById('voiceTranscriptInput');
         const audioPlayer = document.getElementById('voicePreviewAudio');
 
         if (timerEl) timerEl.textContent = '00:00:00';
@@ -61,16 +69,22 @@
         }
         if (startBtn) {
             startBtn.style.display = 'inline-flex';
-            startBtn.innerHTML = '<i data-lucide="radio" style="width:16px; height:16px;"></i> <span>Bắt đầu Ghi âm</span>';
+            startBtn.innerHTML = '<i data-lucide="radio" style="width:16px; height:16px;"></i> <span>Bắt đầu Ghi âm & Chuyển chữ</span>';
             startBtn.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
         }
         if (pauseBtn) pauseBtn.style.display = 'none';
         if (stopBtn) stopBtn.style.display = 'none';
+        if (liveTranscriptSection) liveTranscriptSection.style.display = 'none';
+        if (liveTranscriptText) liveTranscriptText.textContent = 'Đang lắng nghe giọng nói...';
         if (postRecordSection) postRecordSection.style.display = 'none';
+        if (transcriptInput) transcriptInput.value = '';
         if (audioPlayer) {
             audioPlayer.pause();
             audioPlayer.src = '';
         }
+
+        transcribedFinalText = '';
+        transcribedInterimText = '';
 
         drawStaticVisualizer();
         if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -133,6 +147,11 @@
             isPaused = false;
             recordStartTime = Date.now();
             pausedDuration = 0;
+            transcribedFinalText = '';
+            transcribedInterimText = '';
+
+            // Start Speech-to-Text Recognition
+            startSpeechRecognition();
 
             updateRecordingUI();
             startTimer();
@@ -144,6 +163,65 @@
         }
     }
 
+    function startSpeechRecognition() {
+        try {
+            const SpeechRecClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecClass) {
+                console.warn('Trình duyệt chưa hỗ trợ Web Speech Recognition');
+                return;
+            }
+
+            speechRecognizer = new SpeechRecClass();
+            speechRecognizer.continuous = true;
+            speechRecognizer.interimResults = true;
+            speechRecognizer.lang = 'vi-VN';
+
+            const liveBox = document.getElementById('voiceLiveTranscriptSection');
+            const liveText = document.getElementById('voiceLiveTranscriptText');
+            if (liveBox) liveBox.style.display = 'block';
+            if (liveText) {
+                liveText.textContent = '🎙️ Đang lắng nghe giọng nói Tiếng Việt...';
+                liveText.style.color = '#64748b';
+            }
+
+            speechRecognizer.onresult = (event) => {
+                let interim = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        transcribedFinalText += (transcribedFinalText ? ' ' : '') + event.results[i][0].transcript;
+                    } else {
+                        interim += event.results[i][0].transcript;
+                    }
+                }
+                transcribedInterimText = interim;
+                const fullText = (transcribedFinalText + (interim ? ' ' + interim : '')).trim();
+
+                if (liveText && fullText) {
+                    liveText.textContent = fullText;
+                    liveText.style.color = '#0f172a';
+                }
+                const transcriptInput = document.getElementById('voiceTranscriptInput');
+                if (transcriptInput && fullText) {
+                    transcriptInput.value = fullText;
+                }
+            };
+
+            speechRecognizer.onerror = (e) => {
+                console.warn('SpeechRecognition error:', e.error);
+            };
+
+            speechRecognizer.onend = () => {
+                if (isRecording && !isPaused && speechRecognizer) {
+                    try { speechRecognizer.start(); } catch(e) {}
+                }
+            };
+
+            speechRecognizer.start();
+        } catch (e) {
+            console.warn('Speech recognition start failed:', e);
+        }
+    }
+
     function togglePauseVoiceRecording() {
         if (!isRecording) return;
         isPaused = !isPaused;
@@ -152,6 +230,9 @@
 
         if (isPaused) {
             pauseStartTime = Date.now();
+            if (speechRecognizer) {
+                try { speechRecognizer.stop(); } catch(e) {}
+            }
             if (pauseBtn) pauseBtn.innerHTML = '<i data-lucide="play" style="width:16px; height:16px;"></i> <span>Tiếp tục</span>';
             if (statusBadge) {
                 statusBadge.style.background = '#fef3c7';
@@ -160,11 +241,14 @@
             }
         } else {
             pausedDuration += (Date.now() - pauseStartTime);
+            if (speechRecognizer) {
+                try { speechRecognizer.start(); } catch(e) {}
+            }
             if (pauseBtn) pauseBtn.innerHTML = '<i data-lucide="pause" style="width:16px; height:16px;"></i> <span>Tạm dừng</span>';
             if (statusBadge) {
                 statusBadge.style.background = '#fef2f2';
                 statusBadge.style.color = '#dc2626';
-                statusBadge.innerHTML = '<i data-lucide="radio" style="width:13px; height:13px; color:#ef4444; animation:infosys-pulse 1.2s infinite;"></i> Đang thu âm...';
+                statusBadge.innerHTML = '<i data-lucide="radio" style="width:13px; height:13px; color:#ef4444; animation:infosys-pulse 1.2s infinite;"></i> Đang thu âm & chuyển chữ...';
             }
         }
         if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -182,6 +266,11 @@
         if (visualizerAnimationId) {
             cancelAnimationFrame(visualizerAnimationId);
             visualizerAnimationId = null;
+        }
+
+        if (speechRecognizer) {
+            try { speechRecognizer.stop(); } catch(e) {}
+            speechRecognizer = null;
         }
 
         // Flush MP3 Encoder
@@ -221,6 +310,7 @@
         const stopBtn = document.getElementById('voiceStopBtn');
         const statusBadge = document.getElementById('voiceRecorderStatusBadge');
         const postRecordSection = document.getElementById('voicePostRecordSection');
+        const liveTranscriptSection = document.getElementById('voiceLiveTranscriptSection');
 
         if (startBtn) startBtn.style.display = 'none';
         if (pauseBtn) {
@@ -228,12 +318,13 @@
             pauseBtn.innerHTML = '<i data-lucide="pause" style="width:16px; height:16px;"></i> <span>Tạm dừng</span>';
         }
         if (stopBtn) stopBtn.style.display = 'inline-flex';
+        if (liveTranscriptSection) liveTranscriptSection.style.display = 'block';
         if (postRecordSection) postRecordSection.style.display = 'none';
 
         if (statusBadge) {
             statusBadge.style.background = '#fef2f2';
             statusBadge.style.color = '#dc2626';
-            statusBadge.innerHTML = '<i data-lucide="radio" style="width:13px; height:13px; color:#ef4444; animation:infosys-pulse 1.2s infinite;"></i> Đang thu âm...';
+            statusBadge.innerHTML = '<i data-lucide="radio" style="width:13px; height:13px; color:#ef4444; animation:infosys-pulse 1.2s infinite;"></i> Đang thu âm & chuyển chữ...';
         }
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
@@ -243,11 +334,13 @@
         const pauseBtn = document.getElementById('voicePauseBtn');
         const stopBtn = document.getElementById('voiceStopBtn');
         const statusBadge = document.getElementById('voiceRecorderStatusBadge');
+        const liveTranscriptSection = document.getElementById('voiceLiveTranscriptSection');
         const postRecordSection = document.getElementById('voicePostRecordSection');
         const audioPlayer = document.getElementById('voicePreviewAudio');
         const sizeBadge = document.getElementById('voiceFileSizeBadge');
         const durationBadge = document.getElementById('voiceFileDurationBadge');
         const defaultNameInput = document.getElementById('voiceFileNoteInput');
+        const transcriptInput = document.getElementById('voiceTranscriptInput');
 
         if (startBtn) {
             startBtn.style.display = 'inline-flex';
@@ -256,11 +349,12 @@
         }
         if (pauseBtn) pauseBtn.style.display = 'none';
         if (stopBtn) stopBtn.style.display = 'none';
+        if (liveTranscriptSection) liveTranscriptSection.style.display = 'none';
 
         if (statusBadge) {
             statusBadge.style.background = '#f0fdf4';
             statusBadge.style.color = '#15803d';
-            statusBadge.innerHTML = '<i data-lucide="check-circle" style="width:13px; height:13px;"></i> Thu âm & Nén MP3 thành công!';
+            statusBadge.innerHTML = '<i data-lucide="check-circle" style="width:13px; height:13px;"></i> Thu âm & Chuyển chữ thành công!';
         }
 
         if (postRecordSection) postRecordSection.style.display = 'block';
@@ -272,7 +366,7 @@
             const kbSize = (recordedBlob.size / 1024).toFixed(1);
             const mbSize = (recordedBlob.size / (1024 * 1024)).toFixed(2);
             const displaySize = recordedBlob.size > 1024 * 1024 ? `${mbSize} MB` : `${kbSize} KB`;
-            if (sizeBadge) sizeBadge.textContent = `Dung lượng: ${displaySize} (MP3 128kbps)`;
+            if (sizeBadge) sizeBadge.textContent = `Dung lượng: ${displaySize} (MP3)`;
         }
 
         const mins = Math.floor(recordedDurationSeconds / 60);
@@ -283,6 +377,11 @@
         const now = new Date();
         const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}`;
         if (defaultNameInput) defaultNameInput.value = `Ghi_am_${dateStr}`;
+
+        const finalFullText = (transcribedFinalText + (transcribedInterimText ? ' ' + transcribedInterimText : '')).trim();
+        if (transcriptInput) {
+            transcriptInput.value = finalFullText || '(Không nhận diện được giọng nói trong bản thu)';
+        }
 
         drawStaticVisualizer(true);
         if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -401,8 +500,13 @@
         const secs = recordedDurationSeconds % 60;
         const durStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
         const kbSize = (recordedBlob.size / 1024).toFixed(1);
+        const transcriptInput = document.getElementById('voiceTranscriptInput');
+        const speechText = (transcriptInput && transcriptInput.value.trim()) || '';
 
-        const noteContent = `🎙️ [Ghi âm MP3] ${filename}\n⏱️ Thời lượng: ${durStr} | 📦 Kích thước: ${kbSize} KB (128kbps MP3)`;
+        let noteContent = `🎙️ [Ghi âm MP3] ${filename}\n⏱️ Thời lượng: ${durStr} | 📦 Kích thước: ${kbSize} KB`;
+        if (speechText && !speechText.startsWith('(Không nhận')) {
+            noteContent += `\n\n📝 [Văn bản phiên âm]:\n${speechText}`;
+        }
 
         if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
             chrome.runtime.sendMessage({
@@ -414,37 +518,87 @@
                 }
             }, (res) => {
                 if (res && res.success) {
-                    if (typeof showInfoToast === 'function') showInfoToast('💾 Đã lưu thông tin bản ghi âm vào Bảng tạm!', 'success');
+                    if (typeof showInfoToast === 'function') showInfoToast('💾 Đã lưu file & văn bản ghi âm vào Bảng tạm!', 'success');
                 } else {
                     if (typeof showInfoToast === 'function') showInfoToast('Đã ghi nhận bản thu âm', 'info');
                 }
             });
         } else {
-            alert('Đã lưu thông tin ghi âm!');
+            alert('Đã lưu thông tin ghi âm vào Bảng tạm!');
+        }
+    }
+
+    function createNoteFromAudio() {
+        const nameInput = document.getElementById('voiceFileNoteInput');
+        const filename = (nameInput && nameInput.value.trim()) || 'Ghi_am_' + Date.now();
+        const transcriptInput = document.getElementById('voiceTranscriptInput');
+        const speechText = (transcriptInput && transcriptInput.value.trim()) || '';
+
+        closeVoiceRecorderModal();
+
+        if (typeof openRecordFormFromDash === 'function') {
+            openRecordFormFromDash('GHI_CHU', {
+                tieu_de: filename.replace(/_/g, ' '),
+                noi_dung: speechText,
+                phan_loai: 'Ghi âm'
+            });
+        } else if (typeof openRecordForm === 'function') {
+            window.currentTab = 'GHI_CHU';
+            openRecordForm({
+                tieu_de: filename.replace(/_/g, ' '),
+                noi_dung: speechText,
+                phan_loai: 'Ghi âm'
+            });
+        }
+    }
+
+    function createTaskFromAudio() {
+        const nameInput = document.getElementById('voiceFileNoteInput');
+        const filename = (nameInput && nameInput.value.trim()) || 'Cong_viec_' + Date.now();
+        const transcriptInput = document.getElementById('voiceTranscriptInput');
+        const speechText = (transcriptInput && transcriptInput.value.trim()) || '';
+
+        closeVoiceRecorderModal();
+
+        if (typeof openRecordFormFromDash === 'function') {
+            openRecordFormFromDash('CONG_VIEC', {
+                tieu_de: filename.replace(/_/g, ' '),
+                mo_ta: speechText,
+                trang_thai: 'Chưa làm',
+                danh_muc: 'Cá nhân'
+            });
+        } else if (typeof openRecordForm === 'function') {
+            window.currentTab = 'CONG_VIEC';
+            openRecordForm({
+                tieu_de: filename.replace(/_/g, ' '),
+                mo_ta: speechText,
+                trang_thai: 'Chưa làm',
+                danh_muc: 'Cá nhân'
+            });
         }
     }
 
     function createVoiceRecorderModalHtml() {
         const modalHtml = `
         <div id="voiceRecorderModal" class="modal-mask" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.75); z-index:99999; justify-content:center; align-items:center; backdrop-filter:blur(4px);">
-            <div class="modal-content" style="background:#ffffff; border-radius:18px; width:92%; max-width:520px; box-shadow:0 20px 40px rgba(0,0,0,0.3); overflow:hidden; border:1px solid #e2e8f0; display:flex; flex-direction:column; animation:infosys-modal-pop 0.25s ease-out;">
+            <div class="modal-content" style="background:#ffffff; border-radius:18px; width:92%; max-width:540px; max-height:92vh; box-shadow:0 20px 40px rgba(0,0,0,0.3); overflow-y:auto; border:1px solid #e2e8f0; display:flex; flex-direction:column; animation:infosys-modal-pop 0.25s ease-out;">
                 
                 <!-- Modal Header -->
-                <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid #f1f5f9; background:#ffffff;">
+                <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid #f1f5f9; background:#ffffff; position:sticky; top:0; z-index:10;">
                     <div style="display:flex; align-items:center; gap:10px;">
                         <div style="width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg, #ec4899 0%, #db2777 100%); color:#fff; display:flex; align-items:center; justify-content:center; box-shadow:0 3px 8px rgba(236,72,153,0.35);">
                             <i data-lucide="mic" style="width:18px; height:18px;"></i>
                         </div>
                         <div>
-                            <h3 style="margin:0; font-size:1.05rem; font-weight:800; color:#0f172a;">Studio Ghi Âm MP3</h3>
-                            <p style="margin:0; font-size:0.75rem; color:#64748b;">Thu âm giọng nói chất lượng cao & Xuất file .mp3 chuẩn</p>
+                            <h3 style="margin:0; font-size:1.05rem; font-weight:800; color:#0f172a;">Studio Ghi Âm & Chuyển Chữ AI</h3>
+                            <p style="margin:0; font-size:0.75rem; color:#64748b;">Ghi âm MP3 128kbps + Tự động chuyển giọng nói thành văn bản</p>
                         </div>
                     </div>
                     <button type="button" id="closeVoiceRecorderBtn" style="background:transparent; border:none; color:#94a3b8; font-size:1.3rem; cursor:pointer; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='transparent'">✕</button>
                 </div>
 
                 <!-- Modal Body -->
-                <div style="padding:22px 24px; display:flex; flex-direction:column; align-items:center; gap:16px; background:#f8fafc;">
+                <div style="padding:20px 22px; display:flex; flex-direction:column; align-items:center; gap:14px; background:#f8fafc;">
                     
                     <!-- Status Badge -->
                     <div id="voiceRecorderStatusBadge" style="background:#f1f5f9; color:#64748b; font-size:0.8rem; font-weight:700; padding:4px 12px; border-radius:20px; display:inline-flex; align-items:center; gap:5px; border:1px solid #e2e8f0;">
@@ -452,46 +606,66 @@
                     </div>
 
                     <!-- Digital Timer Display -->
-                    <div id="voiceRecorderTimer" style="font-family:'Courier New', monospace; font-size:2.8rem; font-weight:800; color:#0f172a; letter-spacing:2px; text-shadow:0 2px 4px rgba(0,0,0,0.05);">
+                    <div id="voiceRecorderTimer" style="font-family:'Courier New', monospace; font-size:2.6rem; font-weight:800; color:#0f172a; letter-spacing:2px; text-shadow:0 2px 4px rgba(0,0,0,0.05);">
                         00:00:00
                     </div>
 
                     <!-- Live Audio Waveform Visualizer Canvas -->
                     <div style="width:100%; border-radius:12px; overflow:hidden; box-shadow:inset 0 2px 6px rgba(0,0,0,0.2); border:1px solid #334155;">
-                        <canvas id="voiceVisualizerCanvas" width="460" height="90" style="width:100%; height:90px; display:block; background:#0f172a;"></canvas>
+                        <canvas id="voiceVisualizerCanvas" width="480" height="80" style="width:100%; height:80px; display:block; background:#0f172a;"></canvas>
+                    </div>
+
+                    <!-- Live Transcription Box during recording -->
+                    <div id="voiceLiveTranscriptSection" style="display:none; width:100%; background:#ffffff; border:1px dashed #cbd5e1; border-radius:10px; padding:10px 14px; box-sizing:border-box;">
+                        <div style="display:flex; align-items:center; gap:5px; font-size:0.75rem; font-weight:700; color:#0284c7; margin-bottom:4px;">
+                            <i data-lucide="sparkles" style="width:13px; height:13px;"></i> VĂN BẢN TRỰC TIẾP (SPEECH-TO-TEXT):
+                        </div>
+                        <div id="voiceLiveTranscriptText" style="font-size:0.85rem; color:#334155; line-height:1.5; max-height:80px; overflow-y:auto; font-style:italic;">
+                            Đang lắng nghe giọng nói...
+                        </div>
                     </div>
 
                     <!-- Controls Toolbar -->
-                    <div style="display:flex; gap:10px; align-items:center; justify-content:center; width:100%; margin-top:4px;">
-                        <button type="button" id="voiceStartBtn" style="background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color:#ffffff; border:none; padding:10px 22px; border-radius:12px; font-weight:700; font-size:0.9rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(239,68,68,0.35); transition:all 0.15s;">
+                    <div style="display:flex; gap:10px; align-items:center; justify-content:center; width:100%; margin-top:2px;">
+                        <button type="button" id="voiceStartBtn" style="background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color:#ffffff; border:none; padding:10px 20px; border-radius:12px; font-weight:700; font-size:0.88rem; cursor:pointer; display:inline-flex; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(239,68,68,0.35); transition:all 0.15s;">
                             <i data-lucide="radio" style="width:16px; height:16px;"></i>
-                            <span>Bắt đầu Ghi âm</span>
+                            <span>Bắt đầu Ghi âm & Chuyển chữ</span>
                         </button>
 
-                        <button type="button" id="voicePauseBtn" style="display:none; background:#ffffff; color:#334155; border:1px solid #cbd5e1; padding:10px 18px; border-radius:12px; font-weight:700; font-size:0.9rem; cursor:pointer; align-items:center; gap:6px;">
+                        <button type="button" id="voicePauseBtn" style="display:none; background:#ffffff; color:#334155; border:1px solid #cbd5e1; padding:10px 16px; border-radius:12px; font-weight:700; font-size:0.88rem; cursor:pointer; align-items:center; gap:6px;">
                             <i data-lucide="pause" style="width:16px; height:16px;"></i>
                             <span>Tạm dừng</span>
                         </button>
 
-                        <button type="button" id="voiceStopBtn" style="display:none; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#ffffff; border:none; padding:10px 20px; border-radius:12px; font-weight:700; font-size:0.9rem; cursor:pointer; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(16,185,129,0.35);">
+                        <button type="button" id="voiceStopBtn" style="display:none; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#ffffff; border:none; padding:10px 18px; border-radius:12px; font-weight:700; font-size:0.88rem; cursor:pointer; align-items:center; gap:6px; box-shadow:0 4px 12px rgba(16,185,129,0.35);">
                             <i data-lucide="square" style="width:16px; height:16px;"></i>
-                            <span>Hoàn thành & Xuất MP3</span>
+                            <span>Hoàn thành & Xuất File</span>
                         </button>
                     </div>
 
                     <!-- Post Recording Actions Section -->
-                    <div id="voicePostRecordSection" style="display:none; width:100%; background:#ffffff; border-radius:14px; padding:16px; border:1px solid #e2e8f0; margin-top:6px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+                    <div id="voicePostRecordSection" style="display:none; width:100%; background:#ffffff; border-radius:14px; padding:16px; border:1px solid #e2e8f0; margin-top:4px; box-shadow:0 2px 8px rgba(0,0,0,0.04); box-sizing:border-box;">
                         
                         <!-- Audio Player -->
                         <div style="margin-bottom:12px;">
-                            <label style="display:block; font-size:0.75rem; font-weight:700; color:#64748b; margin-bottom:6px;">NGHE THỬ BẢN THU:</label>
-                            <audio id="voicePreviewAudio" controls style="width:100%; height:40px; border-radius:8px;"></audio>
+                            <label style="display:block; font-size:0.75rem; font-weight:700; color:#64748b; margin-bottom:5px;">NGHE LẠI BẢN THU:</label>
+                            <audio id="voicePreviewAudio" controls style="width:100%; height:36px; border-radius:8px;"></audio>
                         </div>
 
                         <!-- Details & Filename -->
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:6px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:6px;">
                             <span id="voiceFileDurationBadge" style="font-size:0.75rem; font-weight:700; background:#eff6ff; color:#1d4ed8; padding:3px 8px; border-radius:6px;">Thời lượng: 00:00</span>
                             <span id="voiceFileSizeBadge" style="font-size:0.75rem; font-weight:700; background:#f0fdf4; color:#15803d; padding:3px 8px; border-radius:6px;">Dung lượng: 0 KB</span>
+                        </div>
+
+                        <!-- Transcribed Text Box -->
+                        <div style="margin-bottom:12px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                                <label style="font-size:0.75rem; font-weight:700; color:#334155; display:flex; align-items:center; gap:4px;">
+                                    <i data-lucide="file-text" style="width:13px; height:13px; color:#6366f1;"></i> VĂN BẢN ĐÃ PHIÊN ÂM (CÓ THỂ SỬA):
+                                </label>
+                            </div>
+                            <textarea id="voiceTranscriptInput" rows="3" placeholder="Văn bản nhận diện từ giọng nói..." style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.88rem; box-sizing:border-box; line-height:1.5; resize:vertical;"></textarea>
                         </div>
 
                         <div style="margin-bottom:14px;">
@@ -499,13 +673,19 @@
                             <input type="text" id="voiceFileNoteInput" placeholder="Nhập tên file (VD: Ghi_am_cuoc_hop)" style="width:100%; padding:8px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:0.88rem; box-sizing:border-box;">
                         </div>
 
-                        <!-- Action Buttons -->
-                        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
-                            <button type="button" id="voiceDownloadBtn" style="background:linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color:#ffffff; border:none; padding:10px; border-radius:10px; font-weight:700; font-size:0.83rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 3px 8px rgba(37,99,235,0.3);">
-                                <i data-lucide="download" style="width:15px; height:15px;"></i> Tải file MP3
+                        <!-- 4 Action Buttons Grid -->
+                        <div style="display:grid; grid-template-columns: repeat(2, 1fr); gap:8px;">
+                            <button type="button" id="voiceDownloadBtn" style="background:linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color:#ffffff; border:none; padding:9px 10px; border-radius:10px; font-weight:700; font-size:0.82rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 3px 8px rgba(37,99,235,0.25);">
+                                <i data-lucide="download" style="width:14px; height:14px;"></i> Tải file MP3
                             </button>
-                            <button type="button" id="voiceSaveBangTamBtn" style="background:#f8fafc; color:#334155; border:1px solid #cbd5e1; padding:10px; border-radius:10px; font-weight:700; font-size:0.83rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px;">
-                                <i data-lucide="clipboard-list" style="width:15px; height:15px; color:#0284c7;"></i> Lưu Bảng tạm
+                            <button type="button" id="voiceSaveBangTamBtn" style="background:#f8fafc; color:#334155; border:1px solid #cbd5e1; padding:9px 10px; border-radius:10px; font-weight:700; font-size:0.82rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px;">
+                                <i data-lucide="clipboard-list" style="width:14px; height:14px; color:#0284c7;"></i> Lưu Bảng tạm
+                            </button>
+                            <button type="button" id="voiceCreateNoteBtn" style="background:linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color:#ffffff; border:none; padding:9px 10px; border-radius:10px; font-weight:700; font-size:0.82rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 3px 8px rgba(124,58,237,0.25);">
+                                <i data-lucide="file-plus" style="width:14px; height:14px;"></i> Tạo Ghi chú
+                            </button>
+                            <button type="button" id="voiceCreateTaskBtn" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#ffffff; border:none; padding:9px 10px; border-radius:10px; font-weight:700; font-size:0.82rem; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:5px; box-shadow:0 3px 8px rgba(16,185,129,0.25);">
+                                <i data-lucide="check-square" style="width:14px; height:14px;"></i> Tạo Công việc
                             </button>
                         </div>
                     </div>
@@ -525,6 +705,8 @@
         document.getElementById('voiceStopBtn')?.addEventListener('click', () => stopVoiceRecording(true));
         document.getElementById('voiceDownloadBtn')?.addEventListener('click', downloadMp3File);
         document.getElementById('voiceSaveBangTamBtn')?.addEventListener('click', saveAudioToBangTam);
+        document.getElementById('voiceCreateNoteBtn')?.addEventListener('click', createNoteFromAudio);
+        document.getElementById('voiceCreateTaskBtn')?.addEventListener('click', createTaskFromAudio);
 
         // Close on mask click outside
         const modal = document.getElementById('voiceRecorderModal');

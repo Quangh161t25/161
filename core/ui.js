@@ -87,6 +87,7 @@ async function switchTab(tabName) {
     const todayDash = document.getElementById('todayDashboard');
     const calDash = document.getElementById('calendarDashboard');
     const analyticsDash = document.getElementById('analyticsDashboard');
+    const aiDash = document.getElementById('aiAssistantDashboard');
     const toolboxContainer = document.getElementById('toolboxContainer');
     const tableWrap = document.getElementById('tableWrapper');
     const pagination = document.getElementById('pagination');
@@ -95,12 +96,13 @@ async function switchTab(tabName) {
     const searchInput = document.querySelector('.search-container');
     const dateFilters = document.getElementById('dateFilterContainer');
 
-    if (headerContainer) headerContainer.style.display = currentView === 'TOOLBOX' ? 'none' : 'block';
+    if (headerContainer) headerContainer.style.display = (currentView === 'TOOLBOX' || currentView === 'TRO_LY_AI') ? 'none' : 'block';
     if (expDash) expDash.style.display = currentView === 'CHI_TIEU' ? 'grid' : 'none';
     if (taskDash) taskDash.style.display = currentView === 'CONG_VIEC' ? 'grid' : 'none';
     if (todayDash) todayDash.style.display = currentView === 'HOM_NAY' ? 'block' : 'none';
     if (calDash) calDash.style.display = currentView === 'LICH' ? 'block' : 'none';
     if (analyticsDash) analyticsDash.style.display = currentView === 'THONG_KE' ? 'block' : 'none';
+    if (aiDash) aiDash.style.display = currentView === 'TRO_LY_AI' ? 'flex' : 'none';
     if (toolboxContainer) toolboxContainer.style.display = currentView === 'TOOLBOX' ? 'block' : 'none';
     
     const viewToggleBtn = document.getElementById('viewToggleBtn');
@@ -110,13 +112,13 @@ async function switchTab(tabName) {
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
-    if(!currentTab && currentView !== 'THONG_KE' && currentView !== 'TOOLBOX') {
+    if(!currentTab && currentView !== 'THONG_KE' && currentView !== 'TOOLBOX' && currentView !== 'TRO_LY_AI') {
         if(tableWrap) tableWrap.style.display = 'none';
         if(pagination) pagination.style.display = 'none';
         return;
     }
     
-    if (currentView === 'HOM_NAY' || currentView === 'LICH' || currentView === 'THONG_KE' || currentView === 'TOOLBOX') {
+    if (currentView === 'HOM_NAY' || currentView === 'LICH' || currentView === 'THONG_KE' || currentView === 'TOOLBOX' || currentView === 'TRO_LY_AI') {
         if(tableWrap) tableWrap.style.display = 'none';
         if(pagination) pagination.style.display = 'none';
         if(phanLoaiFilterContainer) phanLoaiFilterContainer.style.display = 'none';
@@ -126,6 +128,11 @@ async function switchTab(tabName) {
         if (addBtn) addBtn.style.display = 'none';
         
         if (currentView === 'TOOLBOX') {
+            return;
+        } else if (currentView === 'TRO_LY_AI') {
+            if (typeof renderAiAssistant === 'function') {
+                renderAiAssistant();
+            }
             return;
         } else if (currentView === 'THONG_KE') {
             renderAnalytics();
