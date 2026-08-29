@@ -108,31 +108,16 @@ if (document.readyState !== 'loading') {
 
 // Detect and Initialize Side Panel mode
 function applySidePanelLayout(data) {
-  const urlParams = new URLSearchParams(window.location.search);
-  const isSidePanel = urlParams.get('view') === 'sidepanel';
-
-  if (isSidePanel) {
-    document.body.classList.add('sidepanel-mode');
-    document.documentElement.style.width = '100%';
-    document.documentElement.style.height = '100%';
-    document.body.style.width = '';
-    document.body.style.height = '';
-    const appContainer = document.querySelector('.app-container');
-    if (appContainer) {
-      appContainer.style.width = '';
-      appContainer.style.height = '';
-    }
-  } else {
-    document.body.classList.remove('sidepanel-mode');
-    document.documentElement.style.width = data.popupWidth + 'px';
-    document.documentElement.style.height = data.popupHeight + 'px';
-    document.body.style.width = data.popupWidth + 'px';
-    document.body.style.height = data.popupHeight + 'px';
-    const appContainer = document.querySelector('.app-container');
-    if (appContainer) {
-      appContainer.style.width = data.popupWidth + 'px';
-      appContainer.style.height = data.popupHeight + 'px';
-    }
+  document.body.classList.add('sidepanel-mode');
+  document.documentElement.style.width = '100%';
+  document.documentElement.style.height = '100%';
+  document.body.style.width = '100%';
+  document.body.style.height = '100%';
+  const appContainer = document.querySelector('.app-container');
+  if (appContainer) {
+    appContainer.style.width = '100%';
+    appContainer.style.height = '100%';
+    appContainer.style.maxWidth = 'none';
   }
 }
 

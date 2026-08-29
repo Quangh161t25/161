@@ -20,7 +20,7 @@ async function switchTab(tabName) {
     currentView = tabName;
     if (tabName === 'HOM_NAY' || tabName === 'LICH') {
         currentTab = 'CONG_VIEC';
-    } else if (tabName === 'THONG_KE') {
+    } else if (tabName === 'THONG_KE' || tabName === 'TOOLBOX') {
         currentTab = '';
     } else {
         currentTab = CONFIG.tabs[tabName] ? tabName : '';
@@ -37,17 +37,21 @@ async function switchTab(tabName) {
     const todayDash = document.getElementById('todayDashboard');
     const calDash = document.getElementById('calendarDashboard');
     const analyticsDash = document.getElementById('analyticsDashboard');
+    const toolboxContainer = document.getElementById('toolboxContainer');
     const tableWrap = document.getElementById('tableWrapper');
     const pagination = document.getElementById('pagination');
     const phanLoaiFilterContainer = document.getElementById('phanLoaiFilterContainer');
+    const headerContainer = document.querySelector('.header-container');
     const searchInput = document.querySelector('.search-container');
     const dateFilters = document.getElementById('dateFilterContainer');
 
+    if (headerContainer) headerContainer.style.display = currentView === 'TOOLBOX' ? 'none' : 'block';
     if (expDash) expDash.style.display = currentView === 'CHI_TIEU' ? 'grid' : 'none';
     if (taskDash) taskDash.style.display = currentView === 'CONG_VIEC' ? 'grid' : 'none';
     if (todayDash) todayDash.style.display = currentView === 'HOM_NAY' ? 'block' : 'none';
     if (calDash) calDash.style.display = currentView === 'LICH' ? 'block' : 'none';
     if (analyticsDash) analyticsDash.style.display = currentView === 'THONG_KE' ? 'block' : 'none';
+    if (toolboxContainer) toolboxContainer.style.display = currentView === 'TOOLBOX' ? 'block' : 'none';
     
     const viewToggleBtn = document.getElementById('viewToggleBtn');
     if (viewToggleBtn) {
@@ -56,13 +60,13 @@ async function switchTab(tabName) {
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
-    if(!currentTab && currentView !== 'THONG_KE') {
+    if(!currentTab && currentView !== 'THONG_KE' && currentView !== 'TOOLBOX') {
         if(tableWrap) tableWrap.style.display = 'none';
         if(pagination) pagination.style.display = 'none';
         return;
     }
     
-    if (currentView === 'HOM_NAY' || currentView === 'LICH' || currentView === 'THONG_KE') {
+    if (currentView === 'HOM_NAY' || currentView === 'LICH' || currentView === 'THONG_KE' || currentView === 'TOOLBOX') {
         if(tableWrap) tableWrap.style.display = 'none';
         if(pagination) pagination.style.display = 'none';
         if(phanLoaiFilterContainer) phanLoaiFilterContainer.style.display = 'none';
@@ -71,7 +75,9 @@ async function switchTab(tabName) {
         const addBtn = document.querySelector('.add-btn');
         if (addBtn) addBtn.style.display = 'none';
         
-        if (currentView === 'THONG_KE') {
+        if (currentView === 'TOOLBOX') {
+            return;
+        } else if (currentView === 'THONG_KE') {
             renderAnalytics();
             return;
         } else if (currentView === 'LICH') {

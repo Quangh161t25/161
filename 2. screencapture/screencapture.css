@@ -17,10 +17,10 @@
 /* Capture Mode Selection Cards */
 .capture-modes-container {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  width: 100%;
-  max-width: 420px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+  width: 100% !important;
+  max-width: none !important;
   margin: 0 auto;
   box-sizing: border-box;
 }
@@ -274,10 +274,10 @@ body.sidepanel-mode .capture-btn-sub {
   gap: 10px;
   background-color: var(--bg-secondary);
   border-radius: var(--border-radius-md);
-  border: 1px solid var(--border-color);;
+  border: 1px solid var(--border-color);
   padding: 12px 14px;
   width: 100%;
-  max-width: 350px;
+  max-width: none !important;
   margin: 0 auto;
   box-sizing: border-box;
 }

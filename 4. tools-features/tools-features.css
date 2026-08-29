@@ -16,7 +16,7 @@
 
 .context-tool-section-title {
   width: 100%;
-  max-width: 420px;
+  max-width: none;
   margin: 0 auto;
   box-sizing: border-box;
 }
@@ -32,7 +32,7 @@
   box-shadow: none;
   transition: all var(--transition-speed) ease;
   width: 100%;
-  max-width: 420px;
+  max-width: none;
   margin: 0 auto;
   box-sizing: border-box;
 }

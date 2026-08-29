@@ -5,20 +5,12 @@
   "version": "1.2.0",
   "description": "Hệ thống Quản lý InfoSys & Bộ công cụ Tiện ích Đồ họa (Color Picker, Screen Grabber, Downloader, Tools)",
   "icons": {
-    "16": "svg/icon16.png",
-    "32": "svg/icon32.png",
-    "48": "svg/icon48.png",
-    "128": "svg/icon128.png"
+    "16": "favicon.png",
+    "48": "favicon.png",
+    "128": "favicon.png"
   },
   "action": {
-    "default_popup": "index.html",
-    "default_title": "Mở InfoSys & ToolBox",
-    "default_icon": {
-      "16": "svg/icon16.png",
-      "32": "svg/icon32.png",
-      "48": "svg/icon48.png",
-      "128": "svg/icon128.png"
-    }
+    "default_title": "Mở InfoSys"
   },
   "background": {
     "service_worker": "background.js"
@@ -75,13 +67,6 @@
       ],
       "run_at": "document_idle",
       "all_frames": true
-    },
-    {
-      "matches": ["<all_urls>"],
-      "js": ["4. tools-features/sound-controller-main.js"],
-      "run_at": "document_start",
-      "all_frames": true,
-      "world": "MAIN"
     }
   ],
   "web_accessible_resources": [

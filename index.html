@@ -96,6 +96,10 @@
                     <i data-lucide="pie-chart" style="width:18px;height:18px;"></i>
                     <span>Thống kê</span>
                 </div>
+                <div class="tab" id="tab_TOOLBOX" data-tab="TOOLBOX" >
+                    <i data-lucide="wrench" style="width:18px;height:18px;"></i>
+                    <span>Tiện ích</span>
+                </div>
             </nav>
         </aside>
 
@@ -164,13 +168,6 @@
                         <span>Giọng đọc</span>
                     </button>
 
-                    <button id="openToolboxBtn" type="button" data-action="open-toolbox"
-                        style="background:linear-gradient(135deg, #0284c7 0%, #0369a1 100%); color:#ffffff; border:none; padding:7px 13px; border-radius:10px; cursor:pointer; font-weight:700; font-size:0.82rem; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 6px rgba(2,132,199,0.35); transition:all 0.15s;" 
-                        title="Mở Bộ công cụ Tiện ích (Chụp/Quay màn hình, Color Picker, Tải Media, Video Tools)">
-                        <i data-lucide="wrench" style="width:14px; height:14px; color:#ffffff;"></i>
-                        <span>ToolBox Suite</span>
-                    </button>
-
                     <button id="viewToggleBtn" type="button" 
                         style="display:none; background:#5b5ef4; color:#fff; border:none; padding:9px 14px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.84rem; display:none; align-items:center; gap:6px;">
                         <i data-lucide="layout-dashboard" style="width:16px;height:16px;"></i> Kanban
@@ -217,6 +214,11 @@
             <div id="calendarDashboard"  style="display:none; margin-bottom:20px;"></div>
             <div id="analyticsDashboard" style="display:none; margin-bottom:20px;"></div>
             <div id="kanbanDashboard"    style="display:none; margin-bottom:20px;"></div>
+
+            <!-- ToolBox Container (shown when tab TOOLBOX is active) -->
+            <div id="toolboxContainer" style="display:none; width:100%; height:100vh; min-height:100vh; border-radius:0; overflow:hidden; background:#0f172a; border:none; margin:0; padding:0; box-sizing:border-box;">
+                <iframe id="toolboxIframe" src="toolbox.html" style="width:100%; height:100%; min-height:100vh; border:none; display:block; margin:0; padding:0;" title="ToolBox Suite"></iframe>
+            </div>
 
             <!-- Data table (desktop) -->
             <div class="table-wrapper" id="tableWrapper">
@@ -408,22 +410,22 @@
     </div>
 
     <!-- Scripts -->
-    <script src="core/globals.js?v=20260829_02"></script>
-    <script src="core/utils.js?v=20260829_02"></script>
-    <script src="core/api.js?v=20260829_02"></script>
-    <script src="core/ui.js?v=20260829_02"></script>
-    <script src="modules/chi_tieu.js?v=20260829_02"></script>
-    <script src="modules/cong_viec.js?v=20260829_02"></script>
-    <script src="modules/ghi_chu.js?v=20260829_02"></script>
-    <script src="modules/mk.js?v=20260829_02"></script>
-    <script src="modules/thong_ke.js?v=20260829_02"></script>
-    <script src="modules/nhac_nho.js?v=20260829_02"></script>
-    <script src="calendar.js?v=20260829_02"></script>
-    <script src="core/init.js?v=20260829_02"></script>
+    <script src="core/globals.js?v=20260829_03"></script>
+    <script src="core/utils.js?v=20260829_03"></script>
+    <script src="core/api.js?v=20260829_03"></script>
+    <script src="core/ui.js?v=20260829_03"></script>
+    <script src="modules/chi_tieu.js?v=20260829_03"></script>
+    <script src="modules/cong_viec.js?v=20260829_03"></script>
+    <script src="modules/ghi_chu.js?v=20260829_03"></script>
+    <script src="modules/mk.js?v=20260829_03"></script>
+    <script src="modules/thong_ke.js?v=20260829_03"></script>
+    <script src="modules/nhac_nho.js?v=20260829_03"></script>
+    <script src="calendar.js?v=20260829_03"></script>
+    <script src="core/init.js?v=20260829_03"></script>
 
     <!-- PWA: Service Worker + Notifications -->
-    <script src="core/pwa.js?v=20260829_02"></script>
-    <script src="core/events.js?v=20260829_02"></script>
+    <script src="core/pwa.js?v=20260829_03"></script>
+    <script src="core/events.js?v=20260829_03"></script>
 </body>
 
 </html>
