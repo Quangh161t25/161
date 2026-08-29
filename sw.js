@@ -5,13 +5,11 @@
 //  - Push notification support
 // ============================================================
 
-const CACHE_NAME = 'infosys-v76';
+const CACHE_NAME = 'infosys-v78';
 const STATIC_ASSETS = [
   './',
   './index.html',
   './styles.css',
-  './app.js',
-  './quick_add.js',
   './calendar.js',
   './manifest.json',
   './icon-192.png',
@@ -32,8 +30,6 @@ self.addEventListener('install', event => {
         './',
         './index.html',
         './styles.css',
-        './app.js',
-        './quick_add.js',
         './calendar.js',
         './manifest.json',
         './icon-192.png',

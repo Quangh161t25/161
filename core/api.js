@@ -247,10 +247,7 @@ async function saveRecordFromForm(e) {
 
         closeProductForm();
         window.cachedData[currentTab] = null; // Invalidate cache before reloading
-        if (currentView === 'TAT_CA') {
-            currentTab = '';
-            await renderAllDashboard();
-        } else if (currentView === 'LICH') {
+        if (currentView === 'LICH') {
             if (typeof renderCalendar === 'function') await renderCalendar();
         } else {
             await fetchData(true);
@@ -304,8 +301,6 @@ async function deleteCurrentRecord() {
         window.cachedData[currentTab] = null;
         if (currentView === 'LICH') {
             if (typeof renderCalendar === 'function') await renderCalendar();
-        } else if (currentView === 'TAT_CA') {
-            await renderAllDashboard();
         } else {
             await fetchData(true);
         }

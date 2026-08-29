@@ -20,10 +20,6 @@ async function switchTab(tabName) {
     currentView = tabName;
     if (tabName === 'HOM_NAY' || tabName === 'LICH') {
         currentTab = 'CONG_VIEC';
-    } else if (tabName === 'THEM') {
-        currentTab = '';
-    } else if (tabName === 'TAT_CA') {
-        currentTab = '';
     } else if (tabName === 'THONG_KE') {
         currentTab = '';
     } else {
@@ -59,20 +55,14 @@ async function switchTab(tabName) {
         viewToggleBtn.innerHTML = taskViewMode === 'table' ? '<i data-lucide="layout-dashboard" style="width:16px; margin-right:4px;"></i> Kanban' : '<i data-lucide="table" style="width:16px; margin-right:4px;"></i> Table';
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
-    
-    const quickAddDash = document.getElementById('quickAddDashboard');
-    if (quickAddDash) quickAddDash.style.display = currentView === 'THEM' ? 'flex' : 'none';
 
-    const allDash = document.getElementById('allDashboard');
-    if (allDash) allDash.style.display = currentView === 'TAT_CA' ? 'flex' : 'none';
-
-    if(!currentTab && currentView !== 'THEM' && currentView !== 'TAT_CA' && currentView !== 'THONG_KE') {
+    if(!currentTab && currentView !== 'THONG_KE') {
         if(tableWrap) tableWrap.style.display = 'none';
         if(pagination) pagination.style.display = 'none';
         return;
     }
     
-    if (currentView === 'HOM_NAY' || currentView === 'LICH' || currentView === 'THEM' || currentView === 'TAT_CA' || currentView === 'THONG_KE') {
+    if (currentView === 'HOM_NAY' || currentView === 'LICH' || currentView === 'THONG_KE') {
         if(tableWrap) tableWrap.style.display = 'none';
         if(pagination) pagination.style.display = 'none';
         if(phanLoaiFilterContainer) phanLoaiFilterContainer.style.display = 'none';
@@ -81,13 +71,7 @@ async function switchTab(tabName) {
         const addBtn = document.querySelector('.add-btn');
         if (addBtn) addBtn.style.display = 'none';
         
-        if (currentView === 'THEM') {
-            renderQuickAddForms();
-            return;
-        } else if (currentView === 'TAT_CA') {
-            renderAllDashboard();
-            return;
-        } else if (currentView === 'THONG_KE') {
+        if (currentView === 'THONG_KE') {
             renderAnalytics();
             return;
         } else if (currentView === 'LICH') {

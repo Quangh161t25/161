@@ -38,7 +38,7 @@
     // Handle shortcut URLs (#them, #chitieu etc.)
     window.addEventListener('DOMContentLoaded', () => {
       const hash = location.hash.replace('#', '').toUpperCase();
-      const tabMap = { THEM: 'THEM', CHITIEU: 'CHI_TIEU', GHICHU: 'GHI_CHU', CONGVIEC: 'CONG_VIEC', HOCHOI: 'HOC_HOI' };
+      const tabMap = { LICH: 'LICH', CHITIEU: 'CHI_TIEU', GHICHU: 'GHI_CHU', CONGVIEC: 'CONG_VIEC', HOCHOI: 'HOC_HOI' };
       if (hash && tabMap[hash]) {
         setTimeout(() => window.switchTab && window.switchTab(tabMap[hash]), 800);
       }
