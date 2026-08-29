@@ -208,13 +208,13 @@ async function saveToBangTam(text, url, customTag = null) {
 // ============================================================
 //  ACTION RECORDER ENGINE (Ghi lại thao tác vào Sheet THAO_TAC)
 // ============================================================
-let isActionRecorderActive = false;
+let isActionRecorderActive = true;
 let actionRecordBuffer = [];
 let actionFlushTimer = null;
 
 if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get({ infosys_action_recorder_enabled: false }, (data) => {
-        isActionRecorderActive = data.infosys_action_recorder_enabled === true;
+    chrome.storage.local.get({ infosys_action_recorder_enabled: true }, (data) => {
+        isActionRecorderActive = data.infosys_action_recorder_enabled !== false;
     });
 }
 

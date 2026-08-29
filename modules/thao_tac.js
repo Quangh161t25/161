@@ -1,4 +1,4 @@
-﻿// ============================================================
+// ============================================================
 //  InfoSys — Module THAO_TAC (Ghi lại & Quản lý Thao tác)
 // ============================================================
 
@@ -30,6 +30,9 @@ function updateActionRecorderButtonUI() {
         btn.innerHTML = `<i data-lucide="circle-dot" style="width:14px; height:14px; color:#94a3b8;"></i> <span id="toggleRecorderText">Ghi thao tác: TẮT</span>`;
     }
     if (typeof lucide !== 'undefined') lucide.createIcons();
+    if (typeof updateHeaderControlsVisibility === 'function') {
+        updateHeaderControlsVisibility();
+    }
 }
 
 function getActionTypeBadge(type) {

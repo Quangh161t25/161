@@ -393,11 +393,11 @@ function buildCalendarHeaderHtml(titleText, subtitleText = '') {
                     </div>
                     
                     <div class="calendar-nav" style="display:flex; gap:6px;">
-                        <button onclick="changeCalendarDate(-1)" title="Trước" style="padding:6px 10px;">
+                        <button type="button" data-action="cal-change-date" data-offset="-1" onclick="changeCalendarDate(-1)" title="Trước" style="padding:6px 10px;">
                             <i data-lucide="chevron-left" style="width:16px;height:16px;"></i>
                         </button>
-                        <button onclick="changeCalendarDate(0)" title="Về hôm nay" style="font-size:0.85rem; font-weight:600; padding:6px 12px;">Hôm nay</button>
-                        <button onclick="changeCalendarDate(1)" title="Sau" style="padding:6px 10px;">
+                        <button type="button" data-action="cal-change-date" data-offset="0" onclick="changeCalendarDate(0)" title="Về hôm nay" style="font-size:0.85rem; font-weight:600; padding:6px 12px;">Hôm nay</button>
+                        <button type="button" data-action="cal-change-date" data-offset="1" onclick="changeCalendarDate(1)" title="Sau" style="padding:6px 10px;">
                             <i data-lucide="chevron-right" style="width:16px;height:16px;"></i>
                         </button>
                     </div>
@@ -405,32 +405,32 @@ function buildCalendarHeaderHtml(titleText, subtitleText = '') {
 
                 <!-- Center: View Mode Toggle (Tháng / Tuần / Ngày) -->
                 <div class="calendar-view-modes" style="display:flex; background:#e2e8f0; padding:3px; border-radius:10px; gap:3px;">
-                    <button type="button" class="cal-mode-btn ${curMode === 'month' ? 'active' : ''}" onclick="setCalendarViewMode('month')" title="Xem dạng Tháng">
+                    <button type="button" class="cal-mode-btn ${curMode === 'month' ? 'active' : ''}" data-action="cal-set-mode" data-mode="month" onclick="setCalendarViewMode('month')" title="Xem dạng Tháng">
                         <i data-lucide="calendar" style="width:14px;height:14px;"></i> Tháng
                     </button>
-                    <button type="button" class="cal-mode-btn ${curMode === 'week' ? 'active' : ''}" onclick="setCalendarViewMode('week')" title="Xem dạng Tuần">
+                    <button type="button" class="cal-mode-btn ${curMode === 'week' ? 'active' : ''}" data-action="cal-set-mode" data-mode="week" onclick="setCalendarViewMode('week')" title="Xem dạng Tuần">
                         <i data-lucide="calendar-range" style="width:14px;height:14px;"></i> Tuần
                     </button>
-                    <button type="button" class="cal-mode-btn ${curMode === 'day' ? 'active' : ''}" onclick="setCalendarViewMode('day')" title="Xem dạng Ngày">
+                    <button type="button" class="cal-mode-btn ${curMode === 'day' ? 'active' : ''}" data-action="cal-set-mode" data-mode="day" onclick="setCalendarViewMode('day')" title="Xem dạng Ngày">
                         <i data-lucide="calendar-days" style="width:14px;height:14px;"></i> Ngày
                     </button>
                 </div>
 
                 <!-- Right: Quick add buttons -->
                 <div style="display: flex; gap: 6px; align-items:center; flex-wrap: wrap;">
-                    <button type="button" class="tag-btn" style="background:#eef2ff; color:#4b4eea; font-weight:600; border:1px solid #c7d2fe;" onclick="quickAddCalendarOnDate('GHI_CHU', '${curDateISO}')">
+                    <button type="button" class="tag-btn" data-action="quick-add-cal" data-tab="GHI_CHU" data-date="${curDateISO}" style="background:#eef2ff; color:#4b4eea; font-weight:600; border:1px solid #c7d2fe;" onclick="quickAddCalendarOnDate('GHI_CHU', '${curDateISO}')">
                         <i data-lucide="plus" style="width:13px;height:13px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> Ghi chú
                     </button>
-                    <button type="button" class="tag-btn" style="background:#fef2f2; color:#ef4444; font-weight:600; border:1px solid #fecaca;" onclick="quickAddCalendarOnDate('CHI_TIEU', '${curDateISO}')">
+                    <button type="button" class="tag-btn" data-action="quick-add-cal" data-tab="CHI_TIEU" data-date="${curDateISO}" style="background:#fef2f2; color:#ef4444; font-weight:600; border:1px solid #fecaca;" onclick="quickAddCalendarOnDate('CHI_TIEU', '${curDateISO}')">
                         <i data-lucide="plus" style="width:13px;height:13px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> Chi tiêu
                     </button>
-                    <button type="button" class="tag-btn" style="background:#fffbeb; color:#f59e0b; font-weight:600; border:1px solid #fde68a;" onclick="quickAddCalendarOnDate('CONG_VIEC', '${curDateISO}')">
+                    <button type="button" class="tag-btn" data-action="quick-add-cal" data-tab="CONG_VIEC" data-date="${curDateISO}" style="background:#fffbeb; color:#f59e0b; font-weight:600; border:1px solid #fde68a;" onclick="quickAddCalendarOnDate('CONG_VIEC', '${curDateISO}')">
                         <i data-lucide="plus" style="width:13px;height:13px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> Công việc
                     </button>
-                    <button type="button" class="tag-btn" style="background:#ecfdf5; color:#10b981; font-weight:600; border:1px solid #a7f3d0;" onclick="quickAddCalendarOnDate('HOC_HOI', '${curDateISO}')">
+                    <button type="button" class="tag-btn" data-action="quick-add-cal" data-tab="HOC_HOI" data-date="${curDateISO}" style="background:#ecfdf5; color:#10b981; font-weight:600; border:1px solid #a7f3d0;" onclick="quickAddCalendarOnDate('HOC_HOI', '${curDateISO}')">
                         <i data-lucide="plus" style="width:13px;height:13px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> Học hỏi
                     </button>
-                    <button type="button" class="tag-btn" style="background:#eef2ff; color:#6366f1; font-weight:600; border:1px solid #c7d2fe;" onclick="quickAddCalendarOnDate('DSNV', '${curDateISO}')">
+                    <button type="button" class="tag-btn" data-action="quick-add-cal" data-tab="DSNV" data-date="${curDateISO}" style="background:#eef2ff; color:#6366f1; font-weight:600; border:1px solid #c7d2fe;" onclick="quickAddCalendarOnDate('DSNV', '${curDateISO}')">
                         <i data-lucide="plus" style="width:13px;height:13px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> Con người
                     </button>
                 </div>
@@ -439,17 +439,17 @@ function buildCalendarHeaderHtml(titleText, subtitleText = '') {
             <!-- Bottom bar: Filter chips -->
             <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; width:100%; border-top:1px dashed #e2e8f0; padding-top:10px;">
                 <div class="calendar-filters" style="display: flex; gap: 6px; overflow-x: auto; flex-wrap: wrap;">
-                    <button class="tag-btn" style="${curFilter === 'ALL' ? 'background:var(--primary);color:#fff;' : ''}" onclick="setCalendarFilter('ALL')">Tất cả</button>
-                    <button class="tag-btn" style="${curFilter === 'GHI_CHU' ? 'background:var(--primary);color:#fff;' : ''}" onclick="setCalendarFilter('GHI_CHU')">Ghi chú</button>
-                    <button class="tag-btn" style="${curFilter === 'CHI_TIEU' ? 'background:var(--primary);color:#fff;' : ''}" onclick="setCalendarFilter('CHI_TIEU')">Chi tiêu</button>
-                    <button class="tag-btn" style="${curFilter === 'CONG_VIEC' ? 'background:var(--primary);color:#fff;' : ''}" onclick="setCalendarFilter('CONG_VIEC')">Công việc</button>
-                    <button class="tag-btn" style="${curFilter === 'HOC_HOI' ? 'background:var(--primary);color:#fff;' : ''}" onclick="setCalendarFilter('HOC_HOI')">Học hỏi</button>
-                    <button class="tag-btn" style="${curFilter === 'DSNV' ? 'background:var(--primary);color:#fff;' : ''}" onclick="setCalendarFilter('DSNV')">Sinh nhật</button>
-                    <button class="tag-btn" style="${curFilter === 'LICH_SU' ? 'background:var(--primary);color:#fff;' : ''}" onclick="setCalendarFilter('LICH_SU')">
+                    <button type="button" class="tag-btn" data-action="cal-set-filter" data-filter="ALL" style="${curFilter === 'ALL' ? 'background:var(--primary);color:#fff;' : ''}" onclick="setCalendarFilter('ALL')">Tất cả</button>
+                    <button type="button" class="tag-btn" data-action="cal-set-filter" data-filter="GHI_CHU" style="${curFilter === 'GHI_CHU' ? 'background:var(--primary);color:#fff;' : ''}" onclick="setCalendarFilter('GHI_CHU')">Ghi chú</button>
+                    <button type="button" class="tag-btn" data-action="cal-set-filter" data-filter="CHI_TIEU" style="${curFilter === 'CHI_TIEU' ? 'background:var(--primary);color:#fff;' : ''}" onclick="setCalendarFilter('CHI_TIEU')">Chi tiêu</button>
+                    <button type="button" class="tag-btn" data-action="cal-set-filter" data-filter="CONG_VIEC" style="${curFilter === 'CONG_VIEC' ? 'background:var(--primary);color:#fff;' : ''}" onclick="setCalendarFilter('CONG_VIEC')">Công việc</button>
+                    <button type="button" class="tag-btn" data-action="cal-set-filter" data-filter="HOC_HOI" style="${curFilter === 'HOC_HOI' ? 'background:var(--primary);color:#fff;' : ''}" onclick="setCalendarFilter('HOC_HOI')">Học hỏi</button>
+                    <button type="button" class="tag-btn" data-action="cal-set-filter" data-filter="DSNV" style="${curFilter === 'DSNV' ? 'background:var(--primary);color:#fff;' : ''}" onclick="setCalendarFilter('DSNV')">Sinh nhật</button>
+                    <button type="button" class="tag-btn" data-action="cal-set-filter" data-filter="LICH_SU" style="${curFilter === 'LICH_SU' ? 'background:var(--primary);color:#fff;' : ''}" onclick="setCalendarFilter('LICH_SU')">
                         <i data-lucide="history" style="width:13px;height:13px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> Lịch sử
                     </button>
                 </div>
-                <button class="add-btn" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-weight:600;font-size:0.84rem;display:flex;align-items:center;gap:4px;cursor:pointer;" onclick="addFromCalendar()">
+                <button type="button" class="add-btn" data-action="add-from-cal" style="background:var(--primary);color:#fff;border:none;padding:6px 14px;border-radius:8px;font-weight:600;font-size:0.84rem;display:flex;align-items:center;gap:4px;cursor:pointer;" onclick="addFromCalendar()">
                     <i data-lucide="plus" style="width:16px;height:16px;"></i> Thêm mới
                 </button>
             </div>
@@ -513,7 +513,7 @@ function drawMonthView(container, events) {
         dayEvents.forEach(evt => {
             const timeTag = evt.timeStr ? `<span style="font-weight:700;margin-right:2px;font-size:0.7rem;opacity:0.85;">${evt.timeStr}</span>` : '';
             eventsHtml += `
-                <div class="calendar-event ${evt.typeClass}" onclick="editEvent('${evt.tabName}', ${evt.rowIndex}, event)" title="${evt.timeStr ? '[' + evt.timeStr + '] ' : ''}${evt.title}">
+                <div class="calendar-event ${evt.typeClass}" data-action="cal-edit-event" data-tab="${evt.tabName}" data-row="${evt.rowIndex}" onclick="editEvent('${evt.tabName}', ${evt.rowIndex}, event)" title="${evt.timeStr ? '[' + evt.timeStr + '] ' : ''}${evt.title}">
                     <i data-lucide="${evt.icon}"></i>
                     ${timeTag}
                     <span class="evt-title">${evt.title}</span>
@@ -526,7 +526,7 @@ function drawMonthView(container, events) {
         if (lunar.lunarDay === 1 || i === 1) lunarStr += '/' + lunar.lunarMonth + (lunar.lunarLeap ? '*' : '');
         
         html += `
-            <div class="${classes}" onclick="switchToDayView(${i}, ${month}, ${year})">
+            <div class="${classes}" data-action="cal-switch-day-view" data-day="${i}" data-month="${month}" data-year="${year}" onclick="switchToDayView(${i}, ${month}, ${year})">
                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px;">
                     <span class="day-number" title="Xem chi tiết ngày">${i}</span>
                     <span class="lunar-number" style="font-size:0.75rem; color:#9ca3af;" title="Âm lịch">${lunarStr}</span>
@@ -600,7 +600,7 @@ function drawWeekView(container, events) {
         let eventsListHtml = '';
         if (dayEvents.length === 0) {
             eventsListHtml = `
-                <div class="cal-week-empty" onclick="quickAddCalendarOnDate('CONG_VIEC', '${dateISO}')">
+                <div class="cal-week-empty" data-action="quick-add-cal" data-tab="CONG_VIEC" data-date="${dateISO}" onclick="quickAddCalendarOnDate('CONG_VIEC', '${dateISO}')">
                     <span>+ Thêm mục</span>
                 </div>
             `;
@@ -616,7 +616,7 @@ function drawWeekView(container, events) {
                 }
                 
                 eventsListHtml += `
-                    <div class="cal-week-card ${badgeClass}" onclick="editEvent('${evt.tabName}', ${evt.rowIndex}, event)" title="${evt.title}">
+                    <div class="cal-week-card ${badgeClass}" data-action="cal-edit-event" data-tab="${evt.tabName}" data-row="${evt.rowIndex}" onclick="editEvent('${evt.tabName}', ${evt.rowIndex}, event)" title="${evt.title}">
                         <div class="cal-week-card-header">
                             <span class="cal-card-type"><i data-lucide="${evt.icon}" style="width:12px;height:12px;"></i> ${evt.typeLabel}</span>
                             ${metaBadge}
@@ -641,7 +641,7 @@ function drawWeekView(container, events) {
         html += `
             <div class="calendar-week-col ${isToday ? 'today' : ''}">
                 <!-- Column Header -->
-                <div class="cal-week-col-header" onclick="switchToDayView(${dNum}, ${mNum}, ${yNum})">
+                <div class="cal-week-col-header" data-action="cal-switch-day-view" data-day="${dNum}" data-month="${mNum}" data-year="${yNum}" onclick="switchToDayView(${dNum}, ${mNum}, ${yNum})">
                     <div class="cal-week-day-title">
                         <span class="day-name">${VI_DAY_SHORT[wDate.getDay()]}</span>
                         <span class="day-num ${isToday ? 'today-badge' : ''}">${pad2(dNum)}/${pad2(mNum + 1)}</span>
@@ -654,10 +654,10 @@ function drawWeekView(container, events) {
                 
                 <!-- Quick add per day -->
                 <div class="cal-week-col-actions">
-                    <button type="button" class="cal-col-add-btn" onclick="quickAddCalendarOnDate('CONG_VIEC', '${dateISO}')" title="Thêm công việc ngày này">
+                    <button type="button" class="cal-col-add-btn" data-action="quick-add-cal" data-tab="CONG_VIEC" data-date="${dateISO}" onclick="quickAddCalendarOnDate('CONG_VIEC', '${dateISO}')" title="Thêm công việc ngày này">
                         <i data-lucide="plus" style="width:12px;height:12px;"></i> Thêm việc
                     </button>
-                    <button type="button" class="cal-col-add-btn" onclick="quickAddCalendarOnDate('CHI_TIEU', '${dateISO}')" title="Thêm chi tiêu ngày này">
+                    <button type="button" class="cal-col-add-btn" data-action="quick-add-cal" data-tab="CHI_TIEU" data-date="${dateISO}" onclick="quickAddCalendarOnDate('CHI_TIEU', '${dateISO}')" title="Thêm chi tiêu ngày này">
                         <i data-lucide="plus" style="width:12px;height:12px;"></i> Chi tiêu
                     </button>
                 </div>
@@ -779,13 +779,13 @@ function drawDayView(container, events) {
                             <h3>Chưa có dữ liệu nào cho ngày này</h3>
                             <p style="color:#64748b; font-size:0.9rem; margin-bottom:16px;">Tạo nhanh ghi chú, công việc hoặc chi tiêu cho ngày ${pad2(dNum)}/${pad2(mNum + 1)}/${yNum}:</p>
                             <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
-                                <button type="button" class="primary-btn" onclick="quickAddCalendarOnDate('CONG_VIEC', '${dateISO}')">
+                                <button type="button" class="primary-btn" data-action="quick-add-cal" data-tab="CONG_VIEC" data-date="${dateISO}" onclick="quickAddCalendarOnDate('CONG_VIEC', '${dateISO}')">
                                     <i data-lucide="check-square" style="width:15px;height:15px;"></i> Thêm công việc
                                 </button>
-                                <button type="button" class="primary-btn" style="background:#ef4444;" onclick="quickAddCalendarOnDate('CHI_TIEU', '${dateISO}')">
+                                <button type="button" class="primary-btn" style="background:#ef4444;" data-action="quick-add-cal" data-tab="CHI_TIEU" data-date="${dateISO}" onclick="quickAddCalendarOnDate('CHI_TIEU', '${dateISO}')">
                                     <i data-lucide="wallet" style="width:15px;height:15px;"></i> Thêm chi tiêu
                                 </button>
-                                <button type="button" class="secondary-btn" onclick="quickAddCalendarOnDate('GHI_CHU', '${dateISO}')">
+                                <button type="button" class="secondary-btn" data-action="quick-add-cal" data-tab="GHI_CHU" data-date="${dateISO}" onclick="quickAddCalendarOnDate('GHI_CHU', '${dateISO}')">
                                     <i data-lucide="book-open" style="width:15px;height:15px;"></i> Thêm ghi chú
                                 </button>
                             </div>
@@ -836,7 +836,7 @@ function renderDayEventCard(evt) {
     }
     
     return `
-        <div class="cal-day-card ${evt.typeClass}" onclick="editEvent('${evt.tabName}', ${evt.rowIndex}, event)">
+        <div class="cal-day-card ${evt.typeClass}" data-action="cal-edit-event" data-tab="${evt.tabName}" data-row="${evt.rowIndex}" onclick="editEvent('${evt.tabName}', ${evt.rowIndex}, event)">
             <div class="cal-day-card-left">
                 <div class="cal-card-time-badge">
                     ${evt.timeStr ? `<i data-lucide="clock" style="width:12px;height:12px;"></i> ${evt.timeStr}` : '<i data-lucide="calendar" style="width:12px;height:12px;"></i> Cả ngày'}
@@ -853,7 +853,7 @@ function renderDayEventCard(evt) {
             </div>
 
             <div class="cal-day-card-actions">
-                <button type="button" class="tag-btn" style="background:#fff; border:1px solid #cbd5e1; font-weight:600; padding:4px 10px;" onclick="editEvent('${evt.tabName}', ${evt.rowIndex}, event)">
+                <button type="button" class="tag-btn" data-action="cal-edit-event" data-tab="${evt.tabName}" data-row="${evt.rowIndex}" style="background:#fff; border:1px solid #cbd5e1; font-weight:600; padding:4px 10px;" onclick="editEvent('${evt.tabName}', ${evt.rowIndex}, event)">
                     <i data-lucide="edit-2" style="width:13px;height:13px;display:inline-block;vertical-align:middle;margin-right:2px;"></i> Sửa
                 </button>
             </div>

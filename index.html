@@ -179,6 +179,13 @@
                         <span>Quét chữ OCR</span>
                     </button>
 
+                    <button id="voiceRecorderBtn" type="button" data-action="open-voice-recorder"
+                        style="background:linear-gradient(135deg, #ec4899 0%, #db2777 100%); color:#ffffff; border:none; padding:7px 12px; border-radius:10px; cursor:pointer; font-weight:700; font-size:0.8rem; display:inline-flex; align-items:center; gap:5px; box-shadow:0 2px 6px rgba(219,39,119,0.35);" 
+                        title="Studio Ghi âm giọng nói & Tải file MP3">
+                        <i data-lucide="mic" style="width:14px; height:14px;"></i>
+                        <span>Ghi âm MP3</span>
+                    </button>
+
                     <button id="toggleRecorderBtn" type="button" data-action="toggle-action-recorder"
                         style="background:#ffffff; border:1px solid #cbd5e1; padding:7px 11px; border-radius:10px; cursor:pointer; font-weight:600; font-size:0.8rem; display:inline-flex; align-items:center; gap:5px; color:#334155;" 
                         title="Bật/Tắt tự động ghi lại thao tác duyệt web & lưu vào sheet THAO_TAC">
@@ -351,17 +358,20 @@
                 </button>
             </div>
             <div style="display:flex;flex-direction:column;gap:10px;padding:10px;">
-                <button class="add-btn" style="width:100%;justify-content:center;" data-action="open-record-dash" data-tab-name="GHI_CHU">
+                <button type="button" class="add-btn" style="width:100%;justify-content:center;" data-action="open-record-dash" data-tab-name="GHI_CHU">
                     <i data-lucide="book-open" style="width:16px;height:16px;"></i> Ghi chú
                 </button>
-                <button class="add-btn" style="width:100%;justify-content:center;" data-action="open-record-dash" data-tab-name="CHI_TIEU">
+                <button type="button" class="add-btn" style="width:100%;justify-content:center;" data-action="open-record-dash" data-tab-name="CHI_TIEU">
                     <i data-lucide="wallet" style="width:16px;height:16px;"></i> Chi tiêu
                 </button>
-                <button class="add-btn" style="width:100%;justify-content:center;" data-action="open-record-dash" data-tab-name="CONG_VIEC">
+                <button type="button" class="add-btn" style="width:100%;justify-content:center;" data-action="open-record-dash" data-tab-name="CONG_VIEC">
                     <i data-lucide="check-square" style="width:16px;height:16px;"></i> Công việc
                 </button>
-                <button class="add-btn" style="width:100%;justify-content:center;" data-action="open-record-dash" data-tab-name="HOC_HOI">
+                <button type="button" class="add-btn" style="width:100%;justify-content:center;" data-action="open-record-dash" data-tab-name="HOC_HOI">
                     <i data-lucide="lightbulb" style="width:16px;height:16px;"></i> Học hỏi
+                </button>
+                <button type="button" class="add-btn" style="width:100%;justify-content:center;" data-action="open-record-dash" data-tab-name="DSNV">
+                    <i data-lucide="users" style="width:16px;height:16px;"></i> Con người
                 </button>
             </div>
         </div>
@@ -428,23 +438,25 @@
     </div>
 
     <!-- Scripts -->
-    <script src="core/globals.js?v=20260829_08"></script>
-    <script src="core/utils.js?v=20260829_08"></script>
-    <script src="core/api.js?v=20260829_08"></script>
-    <script src="core/ui.js?v=20260829_08"></script>
-    <script src="modules/chi_tieu.js?v=20260829_08"></script>
-    <script src="modules/cong_viec.js?v=20260829_08"></script>
-    <script src="modules/ghi_chu.js?v=20260829_08"></script>
-    <script src="modules/thao_tac.js?v=20260829_08"></script>
-    <script src="modules/mk.js?v=20260829_08"></script>
-    <script src="modules/thong_ke.js?v=20260829_08"></script>
-    <script src="modules/nhac_nho.js?v=20260829_08"></script>
-    <script src="calendar.js?v=20260829_08"></script>
-    <script src="core/init.js?v=20260829_08"></script>
+    <script src="lib/lame.min.js"></script>
+    <script src="core/globals.js?v=20260829_11"></script>
+    <script src="core/utils.js?v=20260829_11"></script>
+    <script src="core/api.js?v=20260829_11"></script>
+    <script src="core/ui.js?v=20260829_11"></script>
+    <script src="modules/chi_tieu.js?v=20260829_11"></script>
+    <script src="modules/cong_viec.js?v=20260829_11"></script>
+    <script src="modules/ghi_chu.js?v=20260829_11"></script>
+    <script src="modules/ghi_am.js?v=20260829_11"></script>
+    <script src="modules/thao_tac.js?v=20260829_11"></script>
+    <script src="modules/mk.js?v=20260829_11"></script>
+    <script src="modules/thong_ke.js?v=20260829_11"></script>
+    <script src="modules/nhac_nho.js?v=20260829_11"></script>
+    <script src="calendar.js?v=20260829_11"></script>
+    <script src="core/init.js?v=20260829_11"></script>
 
     <!-- PWA: Service Worker + Notifications -->
-    <script src="core/pwa.js?v=20260829_08"></script>
-    <script src="core/events.js?v=20260829_08"></script>
+    <script src="core/pwa.js?v=20260829_11"></script>
+    <script src="core/events.js?v=20260829_11"></script>
 </body>
 
 </html>

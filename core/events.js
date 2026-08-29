@@ -231,6 +231,95 @@ function setupEventListeners() {
 
     // Delegated click listener for dynamically generated HTML elements
     document.addEventListener('click', (e) => {
+        // Calendar: Quick Add on Date
+        const quickAddCal = e.target.closest('[data-action="quick-add-cal"]');
+        if (quickAddCal) {
+            const tabName = quickAddCal.getAttribute('data-tab');
+            const dateStr = quickAddCal.getAttribute('data-date');
+            if (typeof window.quickAddCalendarOnDate === 'function') {
+                window.quickAddCalendarOnDate(tabName, dateStr);
+            }
+            return;
+        }
+
+        // Calendar: Add From Calendar
+        const addFromCal = e.target.closest('[data-action="add-from-cal"]');
+        if (addFromCal) {
+            if (typeof window.addFromCalendar === 'function') {
+                window.addFromCalendar();
+            } else {
+                const m = document.getElementById('addSelectionModal');
+                if (m) m.style.display = 'flex';
+            }
+            return;
+        }
+
+        // Calendar: Select record type from Add Selection Modal
+        const ordash = e.target.closest('[data-action="open-record-dash"]');
+        if (ordash) {
+            const tabName = ordash.getAttribute('data-tab-name');
+            if (typeof openRecordFormFromDash === 'function' && tabName) {
+                openRecordFormFromDash(tabName);
+            }
+            const m = document.getElementById('addSelectionModal');
+            if (m) m.style.display = 'none';
+            return;
+        }
+
+        // Calendar: Change Date
+        const calChangeDate = e.target.closest('[data-action="cal-change-date"]');
+        if (calChangeDate) {
+            const offset = parseInt(calChangeDate.getAttribute('data-offset'), 10) || 0;
+            if (typeof window.changeCalendarDate === 'function') {
+                window.changeCalendarDate(offset);
+            }
+            return;
+        }
+
+        // Calendar: Set Mode
+        const calSetMode = e.target.closest('[data-action="cal-set-mode"]');
+        if (calSetMode) {
+            const mode = calSetMode.getAttribute('data-mode');
+            if (typeof window.setCalendarViewMode === 'function') {
+                window.setCalendarViewMode(mode);
+            }
+            return;
+        }
+
+        // Calendar: Set Filter
+        const calSetFilter = e.target.closest('[data-action="cal-set-filter"]');
+        if (calSetFilter) {
+            const filter = calSetFilter.getAttribute('data-filter');
+            if (typeof window.setCalendarFilter === 'function') {
+                window.setCalendarFilter(filter);
+            }
+            return;
+        }
+
+        // Calendar: Edit Event
+        const calEditEvt = e.target.closest('[data-action="cal-edit-event"]');
+        if (calEditEvt) {
+            e.stopPropagation();
+            const tabName = calEditEvt.getAttribute('data-tab');
+            const rowIndex = parseInt(calEditEvt.getAttribute('data-row'), 10);
+            if (typeof window.editEvent === 'function') {
+                window.editEvent(tabName, rowIndex, e);
+            }
+            return;
+        }
+
+        // Calendar: Switch Day View
+        const calSwitchDay = e.target.closest('[data-action="cal-switch-day-view"]');
+        if (calSwitchDay) {
+            const d = parseInt(calSwitchDay.getAttribute('data-day'), 10);
+            const m = parseInt(calSwitchDay.getAttribute('data-month'), 10);
+            const y = parseInt(calSwitchDay.getAttribute('data-year'), 10);
+            if (typeof window.switchToDayView === 'function') {
+                window.switchToDayView(d, m, y);
+            }
+            return;
+        }
+
         // Set input value
         const setValBtn = e.target.closest('[data-action="set-input-val"]');
         if (setValBtn) {
@@ -793,6 +882,16 @@ function setupEventListeners() {
                 chrome.runtime.sendMessage({ action: 'START_OCR_CAPTURE_FROM_VIEW' });
             } else {
                 alert('Tính năng Quét chữ OCR hoạt động khi chạy trên Chrome Extension.');
+            }
+        });
+    }
+
+    // 25a. Voice Recorder Studio MP3 Button
+    const voiceRecBtn = document.getElementById('voiceRecorderBtn');
+    if (voiceRecBtn) {
+        voiceRecBtn.addEventListener('click', () => {
+            if (typeof openVoiceRecorderModal === 'function') {
+                openVoiceRecorderModal();
             }
         });
     }

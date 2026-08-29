@@ -42,7 +42,7 @@
 
     const QUICK_TAGS = ['Từ vựng', 'Ghi chú', 'Quan trọng', 'Học hỏi', 'Công việc', 'Dịch thuật'];
 
-    let isActionRecorderActive = false;
+    let isActionRecorderActive = true;
     let pageVisitLogged = false;
 
     // Load initial settings from Extension storage
@@ -55,8 +55,11 @@
                 if (res.infosys_tts_pitch !== undefined) ttsConfig.pitch = parseFloat(res.infosys_tts_pitch) || 1.0;
                 if (res.infosys_target_lang) currentTargetLang = res.infosys_target_lang;
                 if (res.infosys_action_recorder_enabled !== undefined) {
-                    isActionRecorderActive = res.infosys_action_recorder_enabled === true;
+                    isActionRecorderActive = res.infosys_action_recorder_enabled !== false;
                     if (isActionRecorderActive) logInitialPageVisit();
+                } else {
+                    isActionRecorderActive = true;
+                    logInitialPageVisit();
                 }
             }
         });
@@ -72,7 +75,7 @@
                 if (changes.infosys_tts_pitch) ttsConfig.pitch = parseFloat(changes.infosys_tts_pitch.newValue) || 1.0;
                 if (changes.infosys_target_lang) currentTargetLang = changes.infosys_target_lang.newValue || 'vi';
                 if (changes.infosys_action_recorder_enabled !== undefined) {
-                    isActionRecorderActive = changes.infosys_action_recorder_enabled.newValue === true;
+                    isActionRecorderActive = changes.infosys_action_recorder_enabled.newValue !== false;
                     if (isActionRecorderActive) logInitialPageVisit();
                 }
                 updateSpeedPillsUI();
@@ -123,12 +126,9 @@
                     speakInLang(text, 'vi', null);
                 }
             } else if (msg && msg.action === 'ACTION_RECORDER_STATE_CHANGED') {
-                isActionRecorderActive = msg.enabled === true;
+                isActionRecorderActive = msg.enabled !== false;
                 if (isActionRecorderActive) {
                     logInitialPageVisit();
-                    showToast('🔴 Đang ghi lại thao tác duyệt web');
-                } else {
-                    showToast('⏹️ Đã tắt ghi thao tác');
                 }
             }
         });
@@ -990,14 +990,6 @@
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
                 <span>Đọc</span>
             </button>
-            <button id="infosys-tb-ocr" style="background: transparent; border: none; color: #818cf8; padding: 4px 7px; border-radius: 14px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s;" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='transparent'" title="Quét chữ ảnh OCR từ vùng màn hình (Alt+Shift+O)">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h3"/><path d="M20 7V4h-3"/><path d="M4 17v3h3"/><path d="M20 17v3h-3"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
-                <span>OCR</span>
-            </button>
-            <button id="infosys-tb-toolbox" style="background: transparent; border: none; color: #c084fc; padding: 4px 7px; border-radius: 14px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px; transition: background 0.15s;" onmouseover="this.style.background='#1e293b'" onmouseout="this.style.background='transparent'" title="Mở ToolBox Suite (Chụp màn hình, Color Picker, Downloader)">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
-                <span>ToolBox</span>
-            </button>
             <button class="infosys-speed-pill" id="infosys-tb-speed" style="background: #1e293b; border: 1px solid #475569; color: #93c5fd; padding: 2px 7px; border-radius: 10px; font-size: 11px; font-weight: 700; cursor: pointer;" title="Đổi tốc độ đọc (0.75x, 1x, 1.25x, 1.5x, 2x)">
                 ⚡ ${ttsConfig.rate}x
             </button>
@@ -1015,23 +1007,6 @@
         bar.querySelector('#infosys-tb-trans').onclick = (e) => {
             e.stopPropagation();
             showGoogleTranslateCard(rect, text);
-        };
-
-        bar.querySelector('#infosys-tb-ocr').onclick = (e) => {
-            e.stopPropagation();
-            hideFloatingWidgets();
-            if (typeof chrome !== 'undefined' && chrome.runtime) {
-                chrome.runtime.sendMessage({ action: 'START_OCR_CAPTURE_FROM_VIEW' });
-            } else {
-                startOcrAreaSelection();
-            }
-        };
-
-        bar.querySelector('#infosys-tb-toolbox').onclick = (e) => {
-            e.stopPropagation();
-            if (typeof chrome !== 'undefined' && chrome.runtime) {
-                chrome.runtime.sendMessage({ action: 'OPEN_TOOLBOX' });
-            }
         };
 
         bar.querySelector('#infosys-tb-save').onclick = (e) => {

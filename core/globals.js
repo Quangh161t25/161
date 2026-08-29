@@ -83,8 +83,15 @@ try {
     window.isFloatingIconEnabled = true;
 }
 
+try {
+    const recSaved = localStorage.getItem('infosys_action_recorder_enabled');
+    window.isActionRecorderEnabled = recSaved !== null ? recSaved !== 'false' : true;
+} catch (e) {
+    window.isActionRecorderEnabled = true;
+}
+
 if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-    chrome.storage.local.get(['infosys_floating_icon_enabled'], (res) => {
+    chrome.storage.local.get(['infosys_floating_icon_enabled', 'infosys_action_recorder_enabled'], (res) => {
         if (res && res.infosys_floating_icon_enabled !== undefined) {
             window.isFloatingIconEnabled = res.infosys_floating_icon_enabled !== false;
             try {
@@ -98,10 +105,19 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
             }
         }
         if (res && res.infosys_action_recorder_enabled !== undefined) {
-            window.isActionRecorderEnabled = res.infosys_action_recorder_enabled === true;
+            window.isActionRecorderEnabled = res.infosys_action_recorder_enabled !== false;
             try {
                 localStorage.setItem('infosys_action_recorder_enabled', String(window.isActionRecorderEnabled));
             } catch (e) {}
+            if (typeof updateActionRecorderButtonUI === 'function') {
+                updateActionRecorderButtonUI();
+            }
+        } else {
+            window.isActionRecorderEnabled = true;
+            try {
+                localStorage.setItem('infosys_action_recorder_enabled', 'true');
+            } catch (e) {}
+            chrome.storage.local.set({ infosys_action_recorder_enabled: true });
             if (typeof updateActionRecorderButtonUI === 'function') {
                 updateActionRecorderButtonUI();
             }
@@ -123,7 +139,7 @@ if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
                 }
             }
             if (changes.infosys_action_recorder_enabled !== undefined) {
-                window.isActionRecorderEnabled = changes.infosys_action_recorder_enabled.newValue === true;
+                window.isActionRecorderEnabled = changes.infosys_action_recorder_enabled.newValue !== false;
                 try {
                     localStorage.setItem('infosys_action_recorder_enabled', String(window.isActionRecorderEnabled));
                 } catch (e) {}

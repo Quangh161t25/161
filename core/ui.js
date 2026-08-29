@@ -8,6 +8,44 @@ function toggleSidebar() {
 }
 
 
+function updateHeaderControlsVisibility() {
+    const isExtension = typeof chrome !== 'undefined' && 
+                        chrome.runtime && 
+                        Boolean(chrome.runtime.id) && 
+                        (location.protocol === 'chrome-extension:' || location.protocol === 'moz-extension:');
+
+    // 1. Icon web: Chỉ hiển thị ở extension và hiện ở modul Bảng tạm
+    const floatingBtn = document.getElementById('globalToggleFloatingBtn');
+    if (floatingBtn) {
+        floatingBtn.style.display = (isExtension && currentView === 'BANG_TAM') ? 'inline-flex' : 'none';
+    }
+
+    // 2. Giọng đọc: Chỉ hiển thị ở extension và hiện ở modul Bảng tạm
+    const ttsBtn = document.getElementById('ttsSettingsBtn');
+    if (ttsBtn) {
+        ttsBtn.style.display = (isExtension && currentView === 'BANG_TAM') ? 'inline-flex' : 'none';
+    }
+
+    // 3. Quét chữ OCR: Chỉ hiển thị ở extension
+    const ocrBtn = document.getElementById('headerOcrBtn');
+    if (ocrBtn) {
+        ocrBtn.style.display = isExtension ? 'inline-flex' : 'none';
+    }
+
+    // 4. Ghi âm MP3: Giữ nguyên luôn hiển thị
+    const voiceBtn = document.getElementById('voiceRecorderBtn');
+    if (voiceBtn) {
+        voiceBtn.style.display = 'inline-flex';
+    }
+
+    // 5. Ghi thao tác: Chỉ hiển thị ở extension và hiện ở modul Thao tác
+    const recBtn = document.getElementById('toggleRecorderBtn');
+    if (recBtn) {
+        recBtn.style.display = (isExtension && currentView === 'THAO_TAC') ? 'inline-flex' : 'none';
+    }
+}
+window.updateHeaderControlsVisibility = updateHeaderControlsVisibility;
+
 async function switchTab(tabName) {
     if (tabName === 'MK') {
         const pass = prompt('Vui lòng nhập mật khẩu để truy cập:');
@@ -29,6 +67,7 @@ async function switchTab(tabName) {
     }
 
     currentView = tabName;
+    updateHeaderControlsVisibility();
     if (tabName === 'HOM_NAY' || tabName === 'LICH') {
         currentTab = 'CONG_VIEC';
     } else if (tabName === 'THONG_KE' || tabName === 'TOOLBOX') {
@@ -989,6 +1028,7 @@ function updateGlobalFloatingButtonUI() {
         btn.style.background = isEnabled ? '#ecfdf5' : '#f8fafc';
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
+    updateHeaderControlsVisibility();
 }
 
 function toggleFloatingIconSetting() {
@@ -1306,14 +1346,26 @@ function openRecordForm(rowData = null, sheetRow = null, defaultDateStr = null) 
 
         // Parse date for input
         if (isEdit && String(val).includes('/')) {
-            if (h === 'ngay') {
-                const [d, m, y] = val.split('/');
-                val = `${y}-${m}-${d}`;
-            } else if (['ngay_in', 'ngay_out'].includes(h)) {
-                const [datePart, timePart] = val.split(' ');
+            if (h === 'ngay' || h === 'ngay_sinh') {
+                const parts = String(val).trim().split(' ')[0].split('/');
+                if (parts.length === 3) {
+                    const y = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+                    const m = parts[1].padStart(2, '0');
+                    const d = parts[0].padStart(2, '0');
+                    val = `${y}-${m}-${d}`;
+                }
+            } else if (['ngay_in', 'ngay_out', 'ngay_bat_dau', 'ngay_hoan_thanh', 'ngay_gio', 'deadline'].includes(h)) {
+                const [datePart, timePart] = String(val).trim().split(' ');
                 if (datePart) {
-                    const [d, m, y] = datePart.split('/');
-                    val = `${y}-${m}-${d}T${timePart || '00:00'}`;
+                    const parts = datePart.split('/');
+                    if (parts.length === 3) {
+                        const y = parts[2].length === 2 ? '20' + parts[2] : parts[2];
+                        const m = parts[1].padStart(2, '0');
+                        const d = parts[0].padStart(2, '0');
+                        let t = timePart ? timePart.slice(0, 5) : '00:00';
+                        if (t.length === 4) t = '0' + t;
+                        val = `${y}-${m}-${d}T${t}`;
+                    }
                 }
             }
         }
@@ -1474,27 +1526,6 @@ function openRecordForm(rowData = null, sheetRow = null, defaultDateStr = null) 
                 <input type="text" id="input_${h}" name="${h}" value="${val}" placeholder="Nhập ${h}...">
                 <div class="tag-buttons" style="display:flex; gap:8px; margin-top:8px; flex-wrap:wrap;">${tagsHtml}</div>
             `;
-        } else if (h === 'ngay_gio' || (currentTab === 'CONG_VIEC' && ['ngay_bat_dau', 'ngay_hoan_thanh'].includes(h))) {
-            let dateVal = val;
-            if (val && String(val).includes('/')) {
-                const parts = String(val).split(' ');
-                const [dd, mm, yyyy] = parts[0].split('/');
-                dateVal = `${yyyy}-${mm}-${dd}T${parts[1] || '00:00'}`;
-            } else if (!isEdit && !val) {
-                const localNow = new Date();
-                if (h === 'ngay_gio' || h === 'ngay_bat_dau') {
-                    dateVal = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                } else if (h === 'ngay_hoan_thanh') {
-                    localNow.setMinutes(localNow.getMinutes() + 30);
-                    dateVal = new Date(localNow.getTime() - localNow.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-                }
-            }
-            inputHtml = `
-                <div style="display:flex; gap:5px;">
-                    <button type="button" class="tag-btn" data-action="adjust-date" data-input="input_${h}" data-val="-1" style="padding:4px 8px;">-</button>
-                    <input type="datetime-local" id="input_${h}" name="${h}" value="${dateVal}" style="flex-grow:1;">
-                    <button type="button" class="tag-btn" data-action="adjust-date" data-input="input_${h}" data-val="1" style="padding:4px 8px;">+</button>
-                </div>`;
         } else if (h === 'tai_khoan' || h === 'tai_khoan_nhan') {
             const colIndex = tabConfig.headers.indexOf(h);
             const existingAccounts = new Set(allData.map(row => row[colIndex]).filter(v => v && typeof v === 'string' && v.trim() !== ''));
